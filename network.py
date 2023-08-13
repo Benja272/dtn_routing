@@ -2,6 +2,7 @@
 from contact_plan import ContactPlan
 from typing import List
 import numpy as np
+import numpy.typing as npt
 import ipdb
 
 decision = np.dtype('int, float') # (node_id, sdp)
@@ -37,7 +38,7 @@ class Node:
 
     def contacts_in_slot(self, t: int) -> List[Contact]:
         contacts = []
-        while self.contacts[self.index].t_since > t and self.index < len(self.contacts)-1:
+        while self.index < len(self.contacts)-1 and self.contacts[self.index].t_since > t:
             self.index += 1
         i = self.index
         while i < len(self.contacts):
@@ -67,7 +68,7 @@ class Network:
             nodes_contacts[n] = []
         for c in cp.contacts:
             nodes_contacts[c.source].append(Contact(c.target, (c.start_t, c.end_t), 0.5, c.data_rate))
-            nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), 0.5, c.data_rate))
+            # nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), 0.5, c.data_rate))
 
         # ipdb.set_trace()
         for n in range(1, cp.node_number+1):
@@ -75,33 +76,39 @@ class Network:
 
         return Network(nodes, cp.start_time, cp.end_time, cp.node_number)
 
-    def get_best_desicion(self, contacts, rute_table, bundle_size, source, target, t):
-        best_desicion = (0, 0)
+    def insert_if_better(self, decisions, d):
+        last_index = len(decisions) - 1
+        if decisions[last_index][1] < d[1]:
+            decisions[last_index] = d
+        decisions = sorted(decisions, key=lambda d: d[1], reverse=True)
+        return decisions
+
+    def get_best_desicions(self, max_copies, contacts, rute_table, bundle_size, source, target, t):
+        best_desicion = np.zeros(max_copies, dtype=decision)
         if (t != self.end_time):
-            best_desicion = (source + 1, rute_table[t+1][source][target][1])
+            best_desicion[0] = (source + 1, rute_table[t+1][source][target][0][1])
         for c in contacts:
             c.set_delay(bundle_size) #mejorar
             if t + c.delay > self.end_time:
                 continue
-            print("t: ", t, "delay: ", c.delay, self.end_time, c.to)
-            sdp = rute_table[t+c.delay][c.to-1][target][1] * (1-c.pf)
-            if t + 2*c.delay <= self.end_time:
-                sdp += rute_table[t+2*c.delay][source][target][1] * c.pf
-            if sdp > best_desicion[1]:
-                best_desicion = (c.to, sdp)
+            for i in range(max_copies):
+                sdp = rute_table[t+c.delay][c.to-1][target][i][1] * (1-c.pf)
+                if t + 2*c.delay <= self.end_time:
+                    sdp += rute_table[t+2*c.delay][source][target][0][1] * c.pf
+                best_desicion = self.insert_if_better(best_desicion, (c.to, sdp))
         return best_desicion
 
 
     def rucop(self, bundle_size, max_copies = 1):
-        rute_table = np.zeros((self.end_time - self.start_time+1, self.node_number, self.node_number), dtype=decision)
+        rute_table = np.zeros((self.end_time - self.start_time+1, self.node_number, self.node_number, max_copies), dtype=decision)
         for t in range(self.end_time, self.start_time -1, -1):
             for source in range(self.node_number):
                 contacts = self.nodes[source].contacts_in_slot(t + self.start_time)
                 for target in range(self.node_number):
                     if source == target:
-                        rute_table[t][source][target] = (source + 1, 1)
+                        rute_table[t][source][target][0] = (source + 1, 1)
                         continue
-                    best_desicion = self.get_best_desicion(contacts, rute_table, bundle_size, source, target, t)
+                    best_desicion = self.get_best_desicions(max_copies, contacts, rute_table, bundle_size, source, target, t)
                     rute_table[t][source][target] = best_desicion
         self.rute_table = rute_table
 
@@ -109,6 +116,6 @@ class Network:
         for t in range(self.end_time -1, self.start_time -1, -1):
             for source in range(self.node_number):
                 for target in range(self.node_number):
-                    if self.rute_table[t][source][target][1] > 0 and source != target:
+                    if self.rute_table[t][source][target][0][1] > 0 and source != target:
                         d = self.rute_table[t][source][target]
-                        print("En t=",t," desde ", source +1, " hasta ", target +1, " con sdp ", d[1], " por ", d[0])
+                        print("En t=",t," desde ", source +1, " hasta ", target +1, " con desiciones ", d)
