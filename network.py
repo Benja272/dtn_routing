@@ -60,15 +60,15 @@ class Network:
         return {'nodes': [n.to_dict() for n in self.nodes]}
 
     @staticmethod
-    def from_contact_plan(cp_path: str):
+    def from_contact_plan(cp_path: str, pf: float = 0.5):
         nodes = []
         nodes_contacts = {}
         cp = ContactPlan.parse_contact_plan(cp_path)
         for n in range(1, cp.node_number+1):
             nodes_contacts[n] = []
         for c in cp.contacts:
-            nodes_contacts[c.source].append(Contact(c.target, (c.start_t, c.end_t), 0.5, c.data_rate))
-            # nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), 0.5, c.data_rate))
+            nodes_contacts[c.source].append(Contact(c.target, (c.start_t, c.end_t), pf, c.data_rate))
+            # nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), pf, c.data_rate))
 
         # ipdb.set_trace()
         for n in range(1, cp.node_number+1):
@@ -94,7 +94,7 @@ class Network:
             for i in range(max_copies):
                 sdp = rute_table[t+c.delay][c.to-1][target][i][1] * (1-c.pf)
                 if t + 2*c.delay <= self.end_time:
-                    sdp += rute_table[t+2*c.delay][source][target][0][1] * c.pf
+                    sdp += rute_table[t+c.delay][source][target][0][1] * c.pf #asumo ack inmediato
                 best_desicion = self.insert_if_better(best_desicion, (c.to, sdp))
         return best_desicion
 
