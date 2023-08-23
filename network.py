@@ -59,9 +59,6 @@ class Network:
         self.priorities = priorities
         assert len(priorities) == 3 and 1 in priorities and 2 in priorities and 3 in priorities
 
-    def to_dict(self) -> dict:
-        return {'nodes': [n.to_dict() for n in self.nodes]}
-
     @staticmethod
     def from_contact_plan(cp_path: str, pf: float = 0.5, priorities = [1,2,3]):
         nodes = []
@@ -78,6 +75,9 @@ class Network:
             nodes.append(Node(n, nodes_contacts[n]))
 
         return Network(nodes, cp.start_time, cp.end_time, cp.node_number, priorities)
+
+    def to_dict(self) -> dict:
+        return {'nodes': [n.to_dict() for n in self.nodes]}
 
     def costs(self, desicion):
         return list(desicion)[1:]
@@ -107,7 +107,7 @@ class Network:
     def case_cost(self, coincidences_base, coincidences, next_t, prob, delay, energy=1):
         case_cost = self.estimate_costs(prob, self.rute_table[next_t][self.source][self.target][coincidences_base].copy(), delay, energy)
         fail_case_sum = self.estimate_coincidences(coincidences, (), case_cost)
-        for i in range(1, len(coincidences)):
+        for i in range(1, len(coincidences) + 1):
             # en caso de que no llegue al target deberia castigarse el delay y la energia
             case_cost = self.estimate_costs(prob, self.rute_table[next_t][self.source][self.target][coincidences_base + i].copy(), delay, energy)
             for failed in itertools.combinations(coincidences, i):
@@ -137,16 +137,19 @@ class Network:
                 fail_coincidences.append((s[0], sended_copies[s])) #coincidentes en el tiempo en caso de fallar
         return success_coincidences, fail_coincidences
 
-    def get_best_desicions(self, max_copies, contacts, t):
+    def next_decision(self, t, sended_copies):
+        success_coincidences, fail_coincidences = self.coincidences(sended_copies, t+1, self.source + 1)
+        next_cost = tuple(self.case_cost(success_coincidences, fail_coincidences, t+1, 1, 1, energy=0))
+        return (self.source + 1,) + next_cost
+
+    def get_best_desicions(self, max_copies, contacts, t) -> Decision:
         sended_copies = {}
         best_desicion = np.zeros(max_copies, dtype=Decision)
         for i in range(max_copies):
             if t + 1 < self.end_time:
-                # if t == 2 and self.source == 3 and self.target == 5: ipdb.set_trace()
+                # if t == 1 and self.source == 2 and self.target == 4: ipdb.set_trace()
                 best_send_pair = (self.source + 1, t+1)
-                success_coincidences, fail_coincidences = self.coincidences(sended_copies, t+1, self.source + 1)
-                next_cost = tuple(self.case_cost(success_coincidences, fail_coincidences, t+1, 1, 1, energy=0))
-                best_desicion[i] = (self.source + 1,) + next_cost
+                best_desicion[i] = self.next_decision(t, sended_copies)
                 pf = 1 #porque la probabilidad de que "falle" y termine ocurriendo la coincidencia es 1
             for c in contacts:
                 next_t = t+c.delay
@@ -186,9 +189,7 @@ class Network:
                     if self.source == self.target:
                         self.rute_table[t][self.source][self.target][0] = (self.source + 1, 1, 0, 0)
                         continue
-                    best_d = self.get_best_desicions(max_copies, contacts, t)
-                    self.rute_table[t][self.source][self.target] = best_d
-            # if (self.source == 5 and 5== self.target): ipdb.set_trace()
+                    self.rute_table[t][self.source][self.target] = self.get_best_desicions(max_copies, contacts, t)
 
 
     def print_table(self):
