@@ -6,7 +6,7 @@ import itertools
 import numpy.typing as npt
 import ipdb
 
-Decision = np.dtype('int, float, float, float') # (node_id, sdp, energy, delay)
+Decision = np.dtype([("node_id", np.int32), ("sdp", np.float32), ("energy", np.float32), ("delay", np.float32)]) # (node_id, sdp, energy, delay)
 
 class Contact:
     def __init__(self, to: int, t_range: (int, int), pf: float, data_rate: int):
@@ -93,8 +93,7 @@ class Network:
         return False
 
     def estimate_costs(self, prob, future_desicions, delay, energy=1):
-        future_costs = list(future_desicions)[1:]
-        return np.dot(prob, (future_costs[0], (energy + future_costs[1]), (delay + future_costs[2])))
+        return np.dot(prob, (future_desicions['sdp'], (energy + future_desicions['energy']), (delay + future_desicions['delay'])))
 
     def estimate_coincidences(self, coincidences, fail_case, cost_sum):
         for c in coincidences:
@@ -161,7 +160,7 @@ class Network:
                     best_desicion[i] = decision
                     best_send_pair = (c.to, next_t)
                     pf = c.pf
-            if best_desicion[i][1] > 0:
+            if best_desicion[i]['sdp'] > 0:
                 sended_copies[best_send_pair] = pf
             else:
                 break
@@ -178,11 +177,9 @@ class Network:
         init_value = np.empty((), dtype=Decision)
         init_value[()]= (0, 0, slot_range, slot_range)
         self.rute_table = np.full((slot_range, self.node_number, self.node_number, max_copies), init_value, dtype=Decision)
-        print(self.rute_table[0])
         self.set_delays(bundle_size)
-        print(self.rute_table[0])
         for t in range(self.end_time, self.start_time -1, -1):
-            for self.source  in range(self.node_number):
+            for self.source in range(self.node_number):
                 contacts = self.nodes[self.source].contacts_in_slot(t + self.start_time)
                 # contacts.append(Contact(self.source + 1, (t, t+1), 0, bundle_size))
                 for self.target in range(self.node_number):
