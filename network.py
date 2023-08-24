@@ -92,8 +92,8 @@ class Network:
                 return False
         return False
 
-    def estimate_costs(self, prob, future_desicions, delay, energy=1):
-        return np.dot(prob, (future_desicions['sdp'], (energy + future_desicions['energy']), (delay + future_desicions['delay'])))
+    def estimate_sdp_energy(self, prob, future_desicions, energy=1):
+        return np.dot(prob, (future_desicions['sdp'], (energy + future_desicions['energy'])))
 
     def estimate_coincidences(self, coincidences, fail_case, cost_sum):
         for c in coincidences:
@@ -103,26 +103,77 @@ class Network:
                 cost_sum = np.dot(1 - c[1], cost_sum)
         return cost_sum
 
+    def coincidences_prob(self, coincidences, prob, case):
+        for c in coincidences:
+            if c in case:
+                prob *= c[1]
+            else:
+                prob *= (1 - c[1])
+        return prob
+
+    # def case_cost(self, coincidences_base, coincidences, next_t, prob, delay, energy=1): #si en coincidences_base = 0, siempre sera 0
+    #     success_cases = []
+    #     sdp_energy_sum = np.zeros(2)
+    #     base_case = self.rute_table[next_t][self.source][self.target][coincidences_base].copy()
+    #     if(base_case[1] > 0):
+    #         coin_prob = self.coincidences_prob(coincidences, prob, ())
+    #         sdp_energy_cost = self.estimate_sdp_energy(coin_prob, base_case, energy)
+    #         if sdp_energy_cost[0] > 0:
+    #             success_cases.append((coin_prob, delay + base_case['delay']))
+    #         for i in range(1, len(coincidences) + 1):
+    #             # en caso de que no llegue al target deberia castigarse el delay y la energia
+    #             case_i = self.rute_table[next_t][self.source][self.target][coincidences_base + i].copy()
+    #             if case_i[1] > 0:
+    #                 for failed in itertools.combinations(coincidences, i):
+    #                     coin_prob = self.coincidences_prob(coincidences, prob, failed)
+    #                     sdp_energy_cost = self.estimate_sdp_energy(coin_prob, case_i, energy)
+    #                     if sdp_energy_cost[0] > 0:
+    #                         success_cases.append((coin_prob, delay + base_case['delay']))
+    #                     sdp_energy_sum = np.add(sdp_energy_sum, sdp_energy_cost)
+    #         return sdp_energy_sum
+    #     else:
+    #         return (0, 0, 0)
+
+    def estimate_delay(self, success_cases):
+        delay = 0
+        total = sum([c[0] for c in success_cases])
+        for case in success_cases:
+            delay += (case[0]/total) * case[1]
+        return delay
+
     def case_cost(self, coincidences_base, coincidences, next_t, prob, delay, energy=1):
-        case_cost = self.estimate_costs(prob, self.rute_table[next_t][self.source][self.target][coincidences_base].copy(), delay, energy)
-        fail_case_sum = self.estimate_coincidences(coincidences, (), case_cost)
-        for i in range(1, len(coincidences) + 1):
-            # en caso de que no llegue al target deberia castigarse el delay y la energia
-            case_cost = self.estimate_costs(prob, self.rute_table[next_t][self.source][self.target][coincidences_base + i].copy(), delay, energy)
-            for failed in itertools.combinations(coincidences, i):
-                case_cost = self.estimate_coincidences(coincidences, failed, case_cost)
-                fail_case_sum = np.add(fail_case_sum, case_cost)
-        return fail_case_sum
+        i = 0
+        success_cases = []
+        sdp_energy_sum = np.zeros(2)
+        i_failed_cases = [()]
+        while i < len(coincidences)+1:
+            case_i = self.rute_table[next_t][self.source][self.target][coincidences_base + i].copy()
+            for failed in i_failed_cases:
+                coin_prob = self.coincidences_prob(coincidences, prob, failed)
+                sdp_energy_cost = self.estimate_sdp_energy(coin_prob, case_i, energy)
+                if sdp_energy_cost[0] > 0:
+                    success_cases.append((coin_prob, delay + case_i['delay']))
+                sdp_energy_sum = np.add(sdp_energy_sum, sdp_energy_cost)
+            i += 1
+            i_failed_cases = itertools.combinations(coincidences, i)
+
+        return sdp_energy_sum, success_cases
+
+
 
 
     def get_costs(self, succes_coincidences, fail_coincidences, contact, next_t):
-        # if self.source == 0 and self.target == 2 and next_t == 1: ipdb.set_trace()
         success_case = self.rute_table[next_t][contact.to-1][self.target][succes_coincidences].copy()
-        success_case_sum = np.array([success_case[1], success_case[2], success_case[3]])
-        if succes_coincidences == 0 and success_case[1] > 0:
-            success_case_sum = self.estimate_costs((1 - contact.pf), success_case, contact.delay)
-        fail_case_sum = self.case_cost(0, fail_coincidences, next_t, contact.pf, contact.delay)
-        return tuple(np.add(success_case_sum, fail_case_sum))
+        if success_case[1] > 0:
+            success_sdp_energy_sum = np.array([success_case[1], success_case[2]])
+            if succes_coincidences == 0:
+                success_sdp_energy_sum = self.estimate_sdp_energy((1 - contact.pf), success_case)
+            fail_sdp_energy_sum, success_cases = self.case_cost(0, fail_coincidences, next_t, contact.pf, contact.delay)
+            success_cases.append((1 - contact.pf, contact.delay + success_case['delay']))
+            sdp_energy_sum = np.add(success_sdp_energy_sum, fail_sdp_energy_sum)
+            return tuple(np.append(sdp_energy_sum, self.estimate_delay(success_cases)))
+        else:
+            return (0, 0, 0)
 
 
 
@@ -138,8 +189,8 @@ class Network:
 
     def next_decision(self, t, sended_copies):
         success_coincidences, fail_coincidences = self.coincidences(sended_copies, t+1, self.source + 1)
-        next_cost = tuple(self.case_cost(success_coincidences, fail_coincidences, t+1, 1, 1, energy=0))
-        return (self.source + 1,) + next_cost
+        sdp_energy_sum, success_cases = self.case_cost(success_coincidences, fail_coincidences, t+1, 1, 1, energy=0)
+        return (self.source + 1,) + tuple(sdp_energy_sum) + (self.estimate_delay(success_cases),)
 
     def get_best_desicions(self, max_copies, contacts, t) -> Decision:
         sended_copies = {}
@@ -174,9 +225,7 @@ class Network:
 
     def rucop(self, bundle_size=1, max_copies = 1):
         slot_range = self.end_time - self.start_time+1
-        init_value = np.empty((), dtype=Decision)
-        init_value[()]= (0, 0, slot_range, slot_range)
-        self.rute_table = np.full((slot_range, self.node_number, self.node_number, max_copies), init_value, dtype=Decision)
+        self.rute_table = np.zeros((slot_range, self.node_number, self.node_number, max_copies), dtype=Decision)
         self.set_delays(bundle_size)
         for t in range(self.end_time, self.start_time -1, -1):
             for self.source in range(self.node_number):
