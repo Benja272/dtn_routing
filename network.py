@@ -55,6 +55,7 @@ class Network:
         self.nodes = nodes
         self.start_time = start_time
         self.end_time = end_time
+        self.slot_range = end_time - start_time+1
         self.node_number = node_number
         self.priorities = priorities
         assert len(priorities) == 3 and 1 in priorities and 2 in priorities and 3 in priorities
@@ -84,6 +85,7 @@ class Network:
 
     def is_worse_desicion(self, d1, d2):
         d1, d2 = list(d1), list(d2)
+        if d1[1] == 0 and d2[1] > 0: return True
         d1[1], d2[1] = (-1)*d1[1], (-1)*d2[1]
         for i in self.priorities:
             if (d1[i] > d2[i]):
@@ -189,6 +191,8 @@ class Network:
 
     def next_decision(self, t, sended_copies):
         success_coincidences, fail_coincidences = self.coincidences(sended_copies, t+1, self.source + 1)
+        # if self.rute_table[t+1][self.source][self.target][success_coincidences]['sdp'] == 0:
+        #     return (self.source + 1, 0, self.slot_range, self.slot_range)
         sdp_energy_sum, success_cases = self.case_cost(success_coincidences, fail_coincidences, t+1, 1, 1, energy=0)
         return (self.source + 1,) + tuple(sdp_energy_sum) + (self.estimate_delay(success_cases),)
 
@@ -197,7 +201,6 @@ class Network:
         best_desicion = np.zeros(max_copies, dtype=Decision)
         for i in range(max_copies):
             if t + 1 < self.end_time:
-                # if t == 1 and self.source == 2 and self.target == 4: ipdb.set_trace()
                 best_send_pair = (self.source + 1, t+1)
                 best_desicion[i] = self.next_decision(t, sended_copies)
                 pf = 1 #porque la probabilidad de que "falle" y termine ocurriendo la coincidencia es 1
@@ -207,7 +210,7 @@ class Network:
                     continue
                 success_coincidences, fail_coincidences = self.coincidences(sended_copies, next_t, c.to)
                 decision = (c.to,) + self.get_costs(success_coincidences, fail_coincidences, c, next_t)
-                if self.is_worse_desicion(best_desicion[i], decision):
+                if decision[1] > 0 and self.is_worse_desicion(best_desicion[i], decision):
                     best_desicion[i] = decision
                     best_send_pair = (c.to, next_t)
                     pf = c.pf
@@ -224,8 +227,7 @@ class Network:
                 contact.set_delay(bundle_size)
 
     def rucop(self, bundle_size=1, max_copies = 1):
-        slot_range = self.end_time - self.start_time+1
-        self.rute_table = np.zeros((slot_range, self.node_number, self.node_number, max_copies), dtype=Decision)
+        self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies), dtype=Decision)
         self.set_delays(bundle_size)
         for t in range(self.end_time, self.start_time -1, -1):
             for self.source in range(self.node_number):
@@ -245,3 +247,8 @@ class Network:
                     if self.rute_table[t][source][target][0][1] > 0 and source != target:
                         d = self.rute_table[t][source][target]
                         print("En t=",t," desde ", source +1, " hasta ", target +1, " con desiciones ", d)
+
+
+# init_value = np.empty((), dtype=Decision)
+#         init_value[()]= (0, 0, slot_range, slot_range)
+#         self.rute_table = np.full((slot_range, self.node_number, self.node_number, max_copies), init_value, dtype=Decision)
