@@ -226,7 +226,7 @@ class Network:
             for contact in node.contacts:
                 contact.set_delay(bundle_size)
 
-    def rucop(self, bundle_size=1, max_copies = 1):
+    def run_multiobjective_derivation(self, bundle_size=1, max_copies = 1):
         self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies), dtype=Decision)
         self.set_delays(bundle_size)
         for t in range(self.end_time, self.start_time -1, -1):

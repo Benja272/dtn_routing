@@ -9,5 +9,5 @@ if (len(sys.argv) > 1):
 else:
     net = network.Network.from_contact_plan('./use_cases/simple_case.txt')
 
-net.rucop(max_copies=2)
+net.run_multiobjective_derivation(max_copies=2)
 net.print_table()
