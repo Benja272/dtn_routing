@@ -14,6 +14,12 @@ El parser de los planes de contacto precalculados se encuentra en el archivo con
 la implementacion de el algoritmo dervidar de las decisiones de cada nodo hacia cada nodo en el intervalo de tiempo requerido.  
 Por ultimo en la carpeta use_cases se encuentran los casos de usos utilizados para el testeo del algoritmo.
 
+### Casos de Uso
+Se definen como una lista de contactos que inician con la frase `a contact` y luego la informacion del contacto, el nodo fuente, el nodo destino  
+y el ratio de trasferencia de datos posible en el contacto. por el momento no hay forma de asignar la probabilidad de fallo pero se la asume como 0.5  
+para todos, ademas al momento de correr el algoritmo de enrutamiento se configura el tamaño de los paquetes asi como la cantidad de copias posibles  
+en la red entera. De esto dependera el tamaño de la tabla de enrutamiento asi como el delay obtenido por cada contacto al intentar enviar un paquete.
+
 ## Uso
 Ejecutando el archivo main con el comando `python3 main.py 123` estamos ejecutando el ejemplo simple_case.txt de un plan de contacto  
 y calculando las decisiones optimas siguiendo las prioridades sdp > energy > delay. Es decir el numero 1 reprecenta el sdp, 2 la energia  
