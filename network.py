@@ -13,7 +13,7 @@ class Decision:
     def is_worse_desicion(d1, d2, priorities):
         d1, d2 = list(d1), list(d2)
         if d1[1] == 0 and d2[1] > 0: return True
-        d1[1], d2[1] = (-1)*d1[1], (-1)*d2[1]
+        d1[1], d2[1] = -d1[1], -d2[1]
         for i in priorities:
             if (d1[i] > d2[i]):
                 return True
