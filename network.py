@@ -50,7 +50,7 @@ class Contact:
 
     @staticmethod
     def useful_contacts(contacts: List['Contact'], t: int, endtime: int) -> List['Contact']:
-        return [c for c in contacts if t+c.delay > endtime]
+        return [c for c in contacts if t+c.delay <= endtime]
 
 class Node:
     def __init__(self, id: int, contacts: List[Contact]):
@@ -204,6 +204,7 @@ class Network:
         for t in range(self.end_time, self.start_time -1, -1):
             for self.source in range(self.node_number):
                 contacts = self.nodes[self.source].contacts_in_slot(t + self.start_time)
+                # contacts.append(Contact(self.source + 1, (t, t+1), 0, bundle_size))
                 for self.target in range(self.node_number):
                     if self.source == self.target:
                         self.rute_table[t][self.source][self.target][0] = (self.source + 1, 1, 0, 0)
