@@ -22,7 +22,7 @@ en la red entera. De esto dependera el tamaño de la tabla de enrutamiento asi c
 
 ## Uso
 Ejecutando el archivo main con el comando `python3 main.py 123` estamos ejecutando el ejemplo simple_case.txt de un plan de contacto  
-y calculando las decisiones optimas siguiendo las prioridades sdp > energy > delay. Es decir el numero 1 reprecenta el sdp, 2 la energia  
+y calculando las decisiones optimas siguiendo las prioridades sdp > energy > delay. Es decir el numero 1 representa el sdp, 2 la energia  
 y 3 el tiempo estimado de entrega. Otro ejemplo seria priorizar la energia antes que el sdp, las prioridades en ese caso deberian  
 configurarse como `213`
 
