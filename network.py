@@ -6,7 +6,25 @@ import itertools
 import numpy.typing as npt
 import ipdb
 
-Decision = np.dtype([("node_id", np.int32), ("sdp", np.float32), ("energy", np.float32), ("delay", np.float32)]) # (node_id, sdp, energy, delay)
+Decision_np = np.dtype([("node_id", np.int32), ("sdp", np.float32), ("energy", np.float32), ("delay", np.float32)]) # (node_id, sdp, energy, delay)
+
+class Decision:
+    @staticmethod
+    def is_worse_desicion(d1, d2, priorities):
+        d1, d2 = list(d1), list(d2)
+        if d1[1] == 0 and d2[1] > 0: return True
+        d1[1], d2[1] = (-1)*d1[1], (-1)*d2[1]
+        for i in priorities:
+            if (d1[i] > d2[i]):
+                return True
+            elif d1[i] < d2[i]:
+                return False
+        return False
+
+    @staticmethod
+    def estimate_sdp_energy(prob, future_desicions, energy=1):
+        return np.dot(prob, (future_desicions['sdp'], (energy + future_desicions['energy'])))
+
 
 class Contact:
     def __init__(self, to: int, t_range: (int, int), pf: float, data_rate: int):
@@ -80,31 +98,6 @@ class Network:
     def to_dict(self) -> dict:
         return {'nodes': [n.to_dict() for n in self.nodes]}
 
-    def costs(self, desicion):
-        return list(desicion)[1:]
-
-    def is_worse_desicion(self, d1, d2):
-        d1, d2 = list(d1), list(d2)
-        if d1[1] == 0 and d2[1] > 0: return True
-        d1[1], d2[1] = (-1)*d1[1], (-1)*d2[1]
-        for i in self.priorities:
-            if (d1[i] > d2[i]):
-                return True
-            elif d1[i] < d2[i]:
-                return False
-        return False
-
-    def estimate_sdp_energy(self, prob, future_desicions, energy=1):
-        return np.dot(prob, (future_desicions['sdp'], (energy + future_desicions['energy'])))
-
-    def estimate_coincidences(self, coincidences, fail_case, cost_sum):
-        for c in coincidences:
-            if c in fail_case:#c[1] = pf, asumo que coincide porque fallo el contacto anterior
-                cost_sum = np.dot(c[1], cost_sum)
-            else: # asumo que no hay coincidencia porque no fallo el contacto anterior
-                cost_sum = np.dot(1 - c[1], cost_sum)
-        return cost_sum
-
     def coincidences_prob(self, coincidences, prob, case):
         for c in coincidences:
             if c in case:
@@ -112,29 +105,6 @@ class Network:
             else:
                 prob *= (1 - c[1])
         return prob
-
-    # def case_cost(self, coincidences_base, coincidences, next_t, prob, delay, energy=1): #si en coincidences_base = 0, siempre sera 0
-    #     success_cases = []
-    #     sdp_energy_sum = np.zeros(2)
-    #     base_case = self.rute_table[next_t][self.source][self.target][coincidences_base].copy()
-    #     if(base_case[1] > 0):
-    #         coin_prob = self.coincidences_prob(coincidences, prob, ())
-    #         sdp_energy_cost = self.estimate_sdp_energy(coin_prob, base_case, energy)
-    #         if sdp_energy_cost[0] > 0:
-    #             success_cases.append((coin_prob, delay + base_case['delay']))
-    #         for i in range(1, len(coincidences) + 1):
-    #             # en caso de que no llegue al target deberia castigarse el delay y la energia
-    #             case_i = self.rute_table[next_t][self.source][self.target][coincidences_base + i].copy()
-    #             if case_i[1] > 0:
-    #                 for failed in itertools.combinations(coincidences, i):
-    #                     coin_prob = self.coincidences_prob(coincidences, prob, failed)
-    #                     sdp_energy_cost = self.estimate_sdp_energy(coin_prob, case_i, energy)
-    #                     if sdp_energy_cost[0] > 0:
-    #                         success_cases.append((coin_prob, delay + base_case['delay']))
-    #                     sdp_energy_sum = np.add(sdp_energy_sum, sdp_energy_cost)
-    #         return sdp_energy_sum
-    #     else:
-    #         return (0, 0, 0)
 
     def estimate_delay(self, success_cases):
         delay = 0
@@ -152,7 +122,7 @@ class Network:
             case_i = self.rute_table[next_t][self.source][self.target][coincidences_base + i].copy()
             for failed in i_failed_cases:
                 coin_prob = self.coincidences_prob(coincidences, prob, failed)
-                sdp_energy_cost = self.estimate_sdp_energy(coin_prob, case_i, energy)
+                sdp_energy_cost = Decision.estimate_sdp_energy(coin_prob, case_i, energy)
                 if sdp_energy_cost[0] > 0:
                     success_cases.append((coin_prob, delay + case_i['delay']))
                 sdp_energy_sum = np.add(sdp_energy_sum, sdp_energy_cost)
@@ -169,7 +139,7 @@ class Network:
         if success_case[1] > 0:
             success_sdp_energy_sum = np.array([success_case[1], success_case[2]])
             if succes_coincidences == 0:
-                success_sdp_energy_sum = self.estimate_sdp_energy((1 - contact.pf), success_case)
+                success_sdp_energy_sum = Decision.estimate_sdp_energy((1 - contact.pf), success_case)
             fail_sdp_energy_sum, success_cases = self.case_cost(0, fail_coincidences, next_t, contact.pf, contact.delay)
             success_cases.append((1 - contact.pf, contact.delay + success_case['delay']))
             sdp_energy_sum = np.add(success_sdp_energy_sum, fail_sdp_energy_sum)
@@ -196,9 +166,9 @@ class Network:
         sdp_energy_sum, success_cases = self.case_cost(success_coincidences, fail_coincidences, t+1, 1, 1, energy=0)
         return (self.source + 1,) + tuple(sdp_energy_sum) + (self.estimate_delay(success_cases),)
 
-    def get_best_desicions(self, max_copies, contacts, t) -> Decision:
+    def get_best_desicions(self, max_copies, contacts, t) -> Decision_np:
         sended_copies = {}
-        best_desicion = np.zeros(max_copies, dtype=Decision)
+        best_desicion = np.zeros(max_copies, dtype=Decision_np)
         for i in range(max_copies):
             if t + 1 < self.end_time:
                 best_send_pair = (self.source + 1, t+1)
@@ -210,7 +180,7 @@ class Network:
                     continue
                 success_coincidences, fail_coincidences = self.coincidences(sended_copies, next_t, c.to)
                 decision = (c.to,) + self.get_costs(success_coincidences, fail_coincidences, c, next_t)
-                if decision[1] > 0 and self.is_worse_desicion(best_desicion[i], decision):
+                if decision[1] > 0 and Decision.is_worse_desicion(best_desicion[i], decision, self.priorities):
                     best_desicion[i] = decision
                     best_send_pair = (c.to, next_t)
                     pf = c.pf
@@ -227,7 +197,7 @@ class Network:
                 contact.set_delay(bundle_size)
 
     def run_multiobjective_derivation(self, bundle_size=1, max_copies = 1):
-        self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies), dtype=Decision)
+        self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies), dtype=Decision_np)
         self.set_delays(bundle_size)
         for t in range(self.end_time, self.start_time -1, -1):
             for self.source in range(self.node_number):
@@ -249,6 +219,6 @@ class Network:
                         print("En t=",t," desde ", source +1, " hasta ", target +1, " con desiciones ", d)
 
 
-# init_value = np.empty((), dtype=Decision)
+# init_value = np.empty((), dtype=Decision_np)
 #         init_value[()]= (0, 0, slot_range, slot_range)
-#         self.rute_table = np.full((slot_range, self.node_number, self.node_number, max_copies), init_value, dtype=Decision)
+#         self.rute_table = np.full((slot_range, self.node_number, self.node_number, max_copies), init_value, dtype=Decision_np)
