@@ -48,6 +48,10 @@ class Contact:
             d['end_time'] = self.__end_time
         return d
 
+    @staticmethod
+    def useful_contacts(contacts: List['Contact'], t: int, endtime: int) -> List['Contact']:
+        return [c for c in contacts if t+c.delay > endtime]
+
 class Node:
     def __init__(self, id: int, contacts: List[Contact]):
         self.id = id
@@ -89,7 +93,6 @@ class Network:
             nodes_contacts[c.source].append(Contact(c.target, (c.start_t, c.end_t), pf, c.data_rate))
             # nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), pf, c.data_rate))
 
-        # ipdb.set_trace()
         for n in range(1, cp.node_number+1):
             nodes.append(Node(n, nodes_contacts[n]))
 
@@ -169,6 +172,7 @@ class Network:
     def get_best_desicions(self, max_copies, contacts, t) -> Decision_np:
         sended_copies = {}
         best_desicion = np.zeros(max_copies, dtype=Decision_np)
+        contacts = Contact.useful_contacts(contacts, t, self.end_time)
         for i in range(max_copies):
             if t + 1 < self.end_time:
                 best_send_pair = (self.source + 1, t+1)
@@ -176,8 +180,6 @@ class Network:
                 pf = 1 #porque la probabilidad de que "falle" y termine ocurriendo la coincidencia es 1
             for c in contacts:
                 next_t = t+c.delay
-                if next_t > self.end_time:
-                    continue
                 success_coincidences, fail_coincidences = self.coincidences(sended_copies, next_t, c.to)
                 decision = (c.to,) + self.get_costs(success_coincidences, fail_coincidences, c, next_t)
                 if decision[1] > 0 and Decision.is_worse_desicion(best_desicion[i], decision, self.priorities):
@@ -202,7 +204,6 @@ class Network:
         for t in range(self.end_time, self.start_time -1, -1):
             for self.source in range(self.node_number):
                 contacts = self.nodes[self.source].contacts_in_slot(t + self.start_time)
-                # contacts.append(Contact(self.source + 1, (t, t+1), 0, bundle_size))
                 for self.target in range(self.node_number):
                     if self.source == self.target:
                         self.rute_table[t][self.source][self.target][0] = (self.source + 1, 1, 0, 0)
