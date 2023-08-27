@@ -21,10 +21,16 @@ para todos, ademas al momento de correr el algoritmo de enrutamiento se configur
 en la red entera. De esto dependera el tamaño de la tabla de enrutamiento asi como el delay obtenido por cada contacto al intentar enviar un paquete.
 
 ## Uso
-Ejecutando el archivo main con el comando `python3 main.py 123` estamos ejecutando el ejemplo simple_case.txt de un plan de contacto  
+Ejecutando el archivo main con el comando `python3 main.py --priorities=123` estamos ejecutando el ejemplo simple_case.txt de un plan de contacto  
 y calculando las decisiones optimas siguiendo las prioridades sdp > energy > delay. Es decir el numero 1 representa el sdp, 2 la energia  
 y 3 el tiempo estimado de entrega. Otro ejemplo seria priorizar la energia antes que el sdp, las prioridades en ese caso deberian  
 configurarse como `213`
+
+### Argumentos opcionales de configuracion de la ejecucion del algoritmo.
+`--priorities=123` ----> prioridades para las desiciones a tomar en el envio de los paquetes.  
+`--bundle_size=1`  ----> tamaño de los paquetes dentro de la red.  
+`--max_copies=2`   ----> cantidad maxima de copias de un mismo paquete.  
+`--contact_plan=simple_case.txt` -----> archivo txt con la informacion del plan de contacto dentro de la carpeta use_cases.
 
 
 

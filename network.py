@@ -81,6 +81,7 @@ class Network:
         self.node_number = node_number
         self.priorities = priorities
         assert len(priorities) == 3 and 1 in priorities and 2 in priorities and 3 in priorities
+        print("Network created with %d nodes, %d slots, %d contacts and priorities %s"%(node_number, self.slot_range, sum([len(n.contacts) for n in nodes]), priorities))
 
     @staticmethod
     def from_contact_plan(cp_path: str, pf: float = 0.5, priorities = [1,2,3]):
@@ -202,6 +203,7 @@ class Network:
         self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies), dtype=Decision_np)
         self.set_delays(bundle_size)
         for t in range(self.end_time, self.start_time -1, -1):
+            print("t=", t)
             for self.source in range(self.node_number):
                 contacts = self.nodes[self.source].contacts_in_slot(t + self.start_time)
                 # contacts.append(Contact(self.source + 1, (t, t+1), 0, bundle_size))
