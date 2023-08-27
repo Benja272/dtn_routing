@@ -205,7 +205,7 @@ class Network:
         for t in range(self.end_time, self.start_time -1, -1):
             print("t=", t)
             for self.source in range(self.node_number):
-                contacts = self.nodes[self.source].contacts_in_slot(t + self.start_time)
+                contacts = self.nodes[self.source].contacts_in_slot(t + self.start_time) # creo que esta mal sumar el start_time
                 # contacts.append(Contact(self.source + 1, (t, t+1), 0, bundle_size))
                 for self.target in range(self.node_number):
                     if self.source == self.target:
