@@ -27,8 +27,9 @@ class Decision:
 
 
 class Contact:
-    def __init__(self, to: int, t_range: (int, int), pf: float, data_rate: int):
-        self.to: int = to
+    def __init__(self, from_n: int, to_n: int, t_range: (int, int), pf: float, data_rate: int):
+        self.from_n: int = from_n
+        self.to: int = to_n
         self.pf: float = pf
         self.data_rate: int = data_rate
         self.t_since: int = t_range[0]
@@ -52,52 +53,35 @@ class Contact:
     def useful_contacts(contacts: List['Contact'], t: int, endtime: int) -> List['Contact']:
         return [c for c in contacts if t+c.delay <= endtime]
 
-class Node:
-    def __init__(self, id: int, contacts: List[Contact]):
-        self.id = id
-        self.index = 0
-        self.contacts = contacts
-        self.contacts.sort(key=lambda c: c.t_until, reverse=True)
-
-    def contacts_in_slot(self, t: int) -> List[Contact]:
-        contacts = []
-        while self.index < len(self.contacts)-1 and self.contacts[self.index].t_since > t:
-            self.index += 1
-        i = self.index
-        while i < len(self.contacts):
-            if self.contacts[i].t_until <= t:
-                break
-            if(self.contacts[i].t_since <= t):
-                contacts.append(self.contacts[i])
-            i += 1
-        return contacts
+# class Node:
+#     def __init__(self, id: int, contacts: List[Contact]):
+#         self.id = id
+#         self.index = 0
+#         self.contacts = contacts
+#         self.contacts.sort(key=lambda c: c.t_until, reverse=True)
 
 class Network:
-    def __init__(self, nodes: List[Node], start_time, end_time, node_number, priorities):
-        self.nodes = nodes
+    def __init__(self, contacts: List[Contact], start_time, end_time, node_number, priorities):
+        self.index = 0
         self.start_time = start_time
         self.end_time = end_time
         self.slot_range = end_time - start_time+1
         self.node_number = node_number
         self.priorities = priorities
+        self.contacts = contacts
+        self.contacts.sort(key=lambda c: c.t_until, reverse=True)
         assert len(priorities) == 3 and 1 in priorities and 2 in priorities and 3 in priorities
         print("Network created with %d nodes, %d slots, %d contacts and priorities %s"%(node_number, self.slot_range, sum([len(n.contacts) for n in nodes]), priorities))
 
     @staticmethod
     def from_contact_plan(cp_path: str, pf: float = 0.5, priorities = [1,2,3]):
-        nodes = []
-        nodes_contacts = {}
+        contacts = []
         cp = ContactPlan.parse_contact_plan(cp_path)
-        for n in range(1, cp.node_number+1):
-            nodes_contacts[n] = []
         for c in cp.contacts:
-            nodes_contacts[c.source].append(Contact(c.target, (c.start_t, c.end_t), pf, c.data_rate))
+            contacts.append(Contact(c.source, c.target, (c.start_t, c.end_t), pf, c.data_rate))
             # nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), pf, c.data_rate))
 
-        for n in range(1, cp.node_number+1):
-            nodes.append(Node(n, nodes_contacts[n]))
-
-        return Network(nodes, cp.start_time, cp.end_time, cp.node_number, priorities)
+        return Network(contacts, cp.start_time, cp.end_time, cp.node_number, priorities)
 
     def to_dict(self) -> dict:
         return {'nodes': [n.to_dict() for n in self.nodes]}
@@ -116,6 +100,20 @@ class Network:
         for case in success_cases:
             delay += (case[0]/total) * case[1]
         return delay
+
+    def contacts_in_slot(self, t: int) -> List[Contact]:
+        contacts = []
+        while self.index < len(self.contacts)-1 and self.contacts[self.index].t_since > t:
+            self.index += 1
+        i = self.index
+        while i < len(self.contacts):
+            if self.contacts[i].t_until <= t:
+                break
+            if(self.contacts[i].t_since <= t):
+                contacts.append(self.contacts[i])
+            i += 1
+        return contacts
+
 
     def case_cost(self, coincidences_base, coincidences, next_t, prob, delay, energy=1):
         i = 0
@@ -205,7 +203,7 @@ class Network:
         for t in range(self.end_time, self.start_time -1, -1):
             print("t=", t)
             for self.source in range(self.node_number):
-                contacts = self.nodes[self.source].contacts_in_slot(t + self.start_time)
+                contacts = self.contacts_in_slot(t + self.start_time)
                 # contacts.append(Contact(self.source + 1, (t, t+1), 0, bundle_size))
                 for self.target in range(self.node_number):
                     if self.source == self.target:
