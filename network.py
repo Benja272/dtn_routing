@@ -216,6 +216,8 @@ class Network:
         self.set_delays(bundle_size)
         for t in range(self.end_time-1, self.start_time -1, -1):
             self.rute_table[t] = self.rute_table[t+1].copy() + np.array([0, 0, 0, 1])
+            for source in range(self.node_number):
+                self.rute_table[t][source][:,:,0] = source + 1
             contacts = self.contacts_in_slot(t)
             self.set_best_desicions(max_copies, contacts, t)
 
