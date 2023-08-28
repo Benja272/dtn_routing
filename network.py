@@ -167,8 +167,6 @@ class Network:
 
     def next_decision(self, t, sended_copies):
         success_coincidences, fail_coincidences = self.coincidences(sended_copies, t+1, self.source + 1)
-        # if self.rute_table[t+1][self.source][self.target][success_coincidences]['sdp'] == 0:
-        #     return (self.source + 1, 0, self.slot_range, self.slot_range)
         sdp_energy_sum, success_cases = self.case_cost(success_coincidences, fail_coincidences, t+1, 1, 1, energy=0)
         return [self.source + 1] + list(sdp_energy_sum) + [self.estimate_delay(success_cases)]
 
@@ -212,12 +210,14 @@ class Network:
     def run_multiobjective_derivation(self, bundle_size=1, max_copies = 1):
         self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies, 4), dtype=np.float)
         for node in range(self.node_number):
-            self.rute_table[self.end_time][node][node][0] = (node + 1, 1, 0, 0)
+            self.rute_table[self.end_time][node][node][0] = [node + 1, 1, 0, 0]
         self.set_delays(bundle_size)
         for t in range(self.end_time-1, self.start_time -1, -1):
-            self.rute_table[t] = self.rute_table[t+1].copy() + np.array([0, 0, 0, 1])
-            for source in range(self.node_number):
-                self.rute_table[t][source][:,:,0] = source + 1
+            for node in range(self.node_number):
+                self.rute_table[t][node][node] = [node + 1, 1, 0, 0]
+                self.rute_table[t][node][:node] = self.rute_table[t+1][node][:node].copy() + np.array([0, 0, 0, 1])
+                self.rute_table[t][node][node+1:] = self.rute_table[t+1][node][node+1:].copy() + np.array([0, 0, 0, 1])
+                self.rute_table[t][node][:,:,0] = node + 1
             contacts = self.contacts_in_slot(t)
             self.set_best_desicions(max_copies, contacts, t)
 
