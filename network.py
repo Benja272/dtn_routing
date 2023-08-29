@@ -200,13 +200,12 @@ class Network:
                 contact.set_delay(bundle_size)
 
     def run_multiobjective_derivation(self, bundle_size=1, max_copies = 1):
+        # self.start_time = 81000
         self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies), dtype=Decision_np)
         self.set_delays(bundle_size)
         for t in range(self.end_time, self.start_time -1, -1):
-            print("t=", t)
             for self.source in range(self.node_number):
                 contacts = self.nodes[self.source].contacts_in_slot(t + self.start_time) # creo que esta mal sumar el start_time
-                # contacts.append(Contact(self.source + 1, (t, t+1), 0, bundle_size))
                 for self.target in range(self.node_number):
                     if self.source == self.target:
                         self.rute_table[t][self.source][self.target][0] = (self.source + 1, 1, 0, 0)
