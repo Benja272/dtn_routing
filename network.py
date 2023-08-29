@@ -56,13 +56,6 @@ class Contact:
     def useful_contacts(contacts: List['Contact'], t: int, endtime: int) -> List['Contact']:
         return [c for c in contacts if t+c.delay <= endtime]
 
-# class Node:
-#     def __init__(self, id: int, contacts: List[Contact]):
-#         self.id = id
-#         self.index = 0
-#         self.contacts = contacts
-#         self.contacts.sort(key=lambda c: c.t_until, reverse=True)
-
 class Network:
     def __init__(self, contacts: List[Contact], start_time, end_time, node_number, priorities):
         self.index = 0
@@ -213,6 +206,7 @@ class Network:
             contact.set_delay(bundle_size)
 
     def run_multiobjective_derivation(self, bundle_size=1, max_copies = 1):
+        self.start_time = 81000
         self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies, 4), dtype=np.float)
         for node in range(self.node_number):
             self.rute_table[self.end_time][node][node][0] = [node + 1, 1, 0, 0]
