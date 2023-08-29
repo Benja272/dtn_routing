@@ -140,7 +140,7 @@ class Network:
 
 
 
-    def get_costs(self, succes_coincidences, fail_coincidences, contact, next_t):
+    def send_decision(self, succes_coincidences, fail_coincidences, contact, next_t):
         success_case = self.rute_table[next_t][contact.to-1][self.target][succes_coincidences].copy()
         if success_case[sdp_index] > 0:
             success_sdp_energy_sum = np.array([success_case[1], success_case[2]])
@@ -149,9 +149,9 @@ class Network:
             fail_sdp_energy_sum, success_cases = self.case_cost(0, fail_coincidences, next_t, contact.pf, contact.delay)
             success_cases.append((1 - contact.pf, contact.delay + success_case[delay_index]))
             sdp_energy_sum = np.add(success_sdp_energy_sum, fail_sdp_energy_sum)
-            return np.append(sdp_energy_sum, self.estimate_delay(success_cases))
+            return np.concatenate(([contact.to], sdp_energy_sum, [self.estimate_delay(success_cases)]))
         else:
-            return [0, 0, 0]
+            return [0, 0, 0, 0]
 
 
 
@@ -170,37 +170,42 @@ class Network:
         sdp_energy_sum, success_cases = self.case_cost(success_coincidences, fail_coincidences, t+1, 1, 1, energy=0)
         return [self.source + 1] + list(sdp_energy_sum) + [self.estimate_delay(success_cases)]
 
+    def init_state(self, t, sended_copies, targets, best_desicions, copies):
+        if self.source not in sended_copies.keys():
+            sended_copies[self.source] = [{} for i in range(self.node_number)]
+            targets[self.source] = [i for i in range(self.node_number)]
+        if self.source not in best_desicions.keys():
+            best_desicions[self.source] = [(self.rute_table[t][self.source][target][copies].copy(), (self.source + 1, t+1), 1) for target in range(self.node_number)]
+
+    def update_state(self, t, sended_copies, targets, best_desicions, copies):
+        for source in best_desicions.keys():
+            nodes = targets[source].copy()
+            for target in nodes:
+                best_desicion, best_send_pair, pf = best_desicions[source][target]
+                if best_desicion[sdp_index] > 0:
+                    sended_copies[source][target][best_send_pair] = pf
+                    self.rute_table[t][source][target][copies] = best_desicion
+                else:
+                    targets[source].remove(target)
+
     def set_best_desicions(self, max_copies, contacts, t) -> None:
         sended_copies = {}
-        nodes = {}
+        targets = {}
         for i in range(max_copies): #revisar si se envio o no en la copia anterior
             best_desicions = {}
             for c in contacts:
                 next_t = t+c.delay
                 self.source = c.from_n - 1
-                if self.source not in sended_copies.keys():
-                    sended_copies[self.source] = [{} for i in range(self.node_number)]
-                    nodes[self.source] = [i for i in range(self.node_number)]
-                if self.source not in best_desicions.keys():
-                    best_desicions[self.source] = [(self.rute_table[t][self.source][target][i].copy(), (self.source + 1, t+1), 1) for target in range(self.node_number)]
-                for self.target in nodes[self.source]:
+                self.init_state(t, sended_copies, targets, best_desicions, i)
+                for self.target in targets[self.source]:
                     if i > 0:
                         best_desicions[self.source][self.target] = [self.next_decision(t, sended_copies[self.source][self.target]), (self.source + 1, t+1), 1]
                     success_coincidences, fail_coincidences = self.coincidences(sended_copies[self.source][self.target], next_t, c.to)
-
-                    decision = np.append(c.to, self.get_costs(success_coincidences, fail_coincidences, c, next_t))
+                    decision = self.send_decision(success_coincidences, fail_coincidences, c, next_t)
                     if decision[sdp_index] > 0 and Decision.is_worse_desicion(best_desicions[self.source][self.target][0], decision, self.priorities):
                         best_desicions[self.source][self.target] = [decision, (c.to, next_t), c.pf]
+            self.update_state(t, sended_copies, targets, best_desicions, i)
 
-            for source in best_desicions.keys():
-                targets = nodes[source].copy()
-                for target in targets:
-                    best_desicion, best_send_pair, pf = best_desicions[source][target]
-                    if best_desicion[sdp_index] > 0:
-                        sended_copies[source][target][best_send_pair] = pf
-                        self.rute_table[t][source][target][i] = best_desicion
-                    else:
-                        nodes[source].remove(target)
 
 
     def set_delays(self, bundle_size):
@@ -214,9 +219,9 @@ class Network:
         self.set_delays(bundle_size)
         for t in range(self.end_time-1, self.start_time -1, -1):
             for node in range(self.node_number):
-                self.rute_table[t][node][node] = [node + 1, 1, 0, 0]
-                self.rute_table[t][node][:node] = self.rute_table[t+1][node][:node].copy() + np.array([0, 0, 0, 1])
-                self.rute_table[t][node][node+1:] = self.rute_table[t+1][node][node+1:].copy() + np.array([0, 0, 0, 1])
+                self.rute_table[t][node]= self.rute_table[t+1][node] + np.array([0, 0, 0, 1])
+                self.rute_table[t][node][node][0] = [node + 1, 1, 0, 0]
+                # self.rute_table[t][node][node+1:] = self.rute_table[t+1][node][node+1:] + np.array([0, 0, 0, 1])
                 self.rute_table[t][node][:,:,0] = node + 1
             contacts = self.contacts_in_slot(t)
             self.set_best_desicions(max_copies, contacts, t)
