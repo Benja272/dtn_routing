@@ -3,7 +3,7 @@ import time
 import resource
 import network
 
-priorities = None
+priorities = [1,2,3]
 file = 'simple_case.txt'
 bundle_size = 1
 max_copies = 2
@@ -36,3 +36,5 @@ net.run_multiobjective_derivation(bundle_size, max_copies)
 time_elapsed = (time.perf_counter()- time_start)
 memMb=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.0/1024.0
 print ("%5.1f n_secs %5.1f MByte" % (time_elapsed,memMb))
+
+net.export_rute_table([5])
