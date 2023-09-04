@@ -8,7 +8,7 @@ import json
 import os
 import ipdb
 
-NODE_ID_INDEX = 0
+CONTACT_ID_INDEX = 0
 SDP_INDEX = 1
 ENERGY_INDEX = 2
 DELAY_INDEX = 3
@@ -32,7 +32,8 @@ class Decision:
 
 
 class Contact:
-    def __init__(self, from_n: int, to_n: int, t_range: (int, int), pf: float, data_rate: int):
+    def __init__(self, id: int, from_n: int, to_n: int, t_range: (int, int), pf: float, data_rate: int):
+        self.id = id
         self.from_n: int = from_n
         self.to: int = to_n
         self.pf: float = pf
@@ -76,7 +77,7 @@ class Network:
         contacts = []
         cp = ContactPlan.parse_contact_plan(cp_path)
         for c in cp.contacts:
-            contacts.append(Contact(c.source, c.target, (c.start_t, c.end_t), pf, c.data_rate))
+            contacts.append(Contact(c.id, c.source, c.target, (c.start_t, c.end_t), pf, c.data_rate))
             # nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), pf, c.data_rate))
 
         return Network(contacts, cp.start_time, cp.end_time, cp.node_number, priorities)
@@ -144,7 +145,7 @@ class Network:
             fail_sdp_energy_sum, success_cases = self.case_cost(0, fail_coincidences, next_t, contact.pf, contact.delay)
             success_cases.append((1 - contact.pf, contact.delay + success_case[DELAY_INDEX]))
             sdp_energy_sum = np.add(success_sdp_energy_sum, fail_sdp_energy_sum)
-            return np.concatenate(([contact.to], sdp_energy_sum, [self.estimate_delay(success_cases)]))
+            return np.concatenate(([contact.id], sdp_energy_sum, [self.estimate_delay(success_cases)]))
         else:
             return [0, 0, 0, 0]
 
@@ -163,7 +164,7 @@ class Network:
     def next_decision(self, t, sended_copies):
         success_coincidences, fail_coincidences = self.coincidences(sended_copies, t+1, self.source + 1)
         sdp_energy_sum, success_cases = self.case_cost(success_coincidences, fail_coincidences, t+1, 1, 1, energy=0)
-        return [self.source + 1] + list(sdp_energy_sum) + [self.estimate_delay(success_cases)]
+        return [0] + list(sdp_energy_sum) + [self.estimate_delay(success_cases)]
 
     def init_state(self, t, sended_copies, targets, best_desicions, copies):
         if self.source not in sended_copies.keys():
@@ -211,14 +212,14 @@ class Network:
         # self.start_time = 81000
         self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies, 4), dtype=np.float)
         for node in range(self.node_number):
-            self.rute_table[self.end_time][node][node][0] = [node + 1, 1, 0, 0]
+            self.rute_table[self.end_time][node][node][0] = [0, 1, 0, 0]
         self.set_delays(bundle_size)
         for t in range(self.end_time-1, self.start_time -1, -1):
             for node in range(self.node_number):
                 self.rute_table[t][node]= self.rute_table[t+1][node] + np.array([0, 0, 0, 1])
-                self.rute_table[t][node][node][0] = [node + 1, 1, 0, 0]
+                # self.rute_table[t][node][node][0] = [0, 1, 0, 0]
                 # self.rute_table[t][node][node+1:] = self.rute_table[t+1][node][node+1:] + np.array([0, 0, 0, 1])
-                self.rute_table[t][node][:,:,0] = node + 1
+                # self.rute_table[t][node][:,:,0] = node + 1
             contacts = self.contacts_in_slot(t)
             self.set_best_desicions(max_copies, contacts, t)
 
@@ -237,19 +238,21 @@ class Network:
         copies_str = str(copies)
         pf_str = f'{pf:.2f}'
         rute_dict = {}
+        targets = [t-1 for t in targets]
         for target in targets:
             rute_dict[target] = {}
             for t in range(self.start_time, self.end_time):
                 t_str = str(t)
                 rute_dict[target][t_str] = {}
                 for source in range(self.node_number):
+                    if source == target: continue
                     str_source = str(source+1)
-                    if self.rute_table[t][source][target-1][0][SDP_INDEX] > 0:
+                    if self.rute_table[t][source][target][0][SDP_INDEX] > 0:
                         key = str_source + ":" + copies_str
-                        rutes = Counter(map(lambda x: int(x[NODE_ID_INDEX]), filter(lambda x: x[SDP_INDEX] > 0, self.rute_table[t][source][target-1])))
+                        rutes = Counter(map(lambda x: int(x[CONTACT_ID_INDEX]), filter(lambda x: x[SDP_INDEX] > 0, self.rute_table[t][source][target])))
                         send_to = []
                         for to in rutes.keys():
-                            send_to.append({'copies': rutes[to], 'rute': [to]})
+                            send_to.append({'copies': rutes[to], 'route': [to]})
                         rute_dict[target][t_str][key] = send_to
         folder = "pf="+ pf_str
         if not os.path.exists(folder):
