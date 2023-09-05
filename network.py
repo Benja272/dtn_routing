@@ -217,7 +217,7 @@ class Network:
         for t in range(self.end_time-1, self.start_time -1, -1):
             for node in range(self.node_number):
                 self.rute_table[t][node]= self.rute_table[t+1][node] + np.array([0, 0, 0, 1])
-                # self.rute_table[t][node][node][0] = [0, 1, 0, 0]
+                self.rute_table[t][node][node][0] = [0, 1, 0, 0]
                 # self.rute_table[t][node][node+1:] = self.rute_table[t+1][node][node+1:] + np.array([0, 0, 0, 1])
                 # self.rute_table[t][node][:,:,0] = node + 1
             contacts = self.contacts_in_slot(t)
@@ -232,8 +232,27 @@ class Network:
                         d = self.rute_table[t][source][target]
                         print("En t=",t," desde ", source +1, " hasta ", target +1, " con desiciones ", *d)
 
+    def create_folder(self, folder):
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+    def dump_rute_table(self, folder, rute_dict, targets, copies_str, pf_str):
+        for target in targets:
+            with open(folder + "/todtnsim-" + str(target) + "-" + copies_str + "-" + pf_str + ".json", "w") as file:
+                json.dump(rute_dict[target], file)
+
+    def routes(self, rute_dict, source, target, t, copies_str):
+        if source == target: return
+        send_to = []
+        str_source = str(source+1)
+        if self.rute_table[t][source][target][0][SDP_INDEX] > 0:
+            key = str_source + ":" + copies_str
+            routes = Counter(map(lambda x: int(x[CONTACT_ID_INDEX]), filter(lambda x: x[SDP_INDEX] > 0, self.rute_table[t][source][target])))
+            for to in routes.keys():
+                send_to.append({'copies': routes[to], 'route': [to]})
+            rute_dict[target][str(t)][key] = send_to
+
     def export_rute_table(self, targets, copies=1, pf=0.5):
-        print(self.rute_table[0][0][0])
         assert len(self.rute_table[0][0][0]) >= copies
         copies_str = str(copies)
         pf_str = f'{pf:.2f}'
@@ -242,24 +261,12 @@ class Network:
         for target in targets:
             rute_dict[target] = {}
             for t in range(self.start_time, self.end_time):
-                t_str = str(t)
-                rute_dict[target][t_str] = {}
+                rute_dict[target][str(t)] = {}
                 for source in range(self.node_number):
-                    if source == target: continue
-                    str_source = str(source+1)
-                    if self.rute_table[t][source][target][0][SDP_INDEX] > 0:
-                        key = str_source + ":" + copies_str
-                        rutes = Counter(map(lambda x: int(x[CONTACT_ID_INDEX]), filter(lambda x: x[SDP_INDEX] > 0, self.rute_table[t][source][target])))
-                        send_to = []
-                        for to in rutes.keys():
-                            send_to.append({'copies': rutes[to], 'route': [to]})
-                        rute_dict[target][t_str][key] = send_to
+                    self.routes(rute_dict, source, target, t, copies_str)
         folder = "pf="+ pf_str
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-        for target in targets:
-            with open(folder + "/todtnsim-" + str(target) + "-" + copies_str + "-" + pf_str + ".json", "w") as file:
-                json.dump(rute_dict[target], file)
+        self.create_folder(folder)
+        self.dump_rute_table(folder, rute_dict, targets, copies_str, pf_str)
 
 
 
