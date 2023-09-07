@@ -8,6 +8,13 @@ import json
 import os
 import ipdb
 
+SUCCESS = 0
+FAIL = 1
+
+T_INDEX = 0
+SOURCE_INDEX = 1
+PROB_INDEX = 2
+
 CONTACT_ID_INDEX = 0
 SDP_INDEX = 1
 ENERGY_INDEX = 2
@@ -15,14 +22,14 @@ DELAY_INDEX = 3
 
 class Decision:
     @staticmethod
-    def is_worse_desicion(d1, d2, priorities):
-        d1, d2 = list(d1), list(d2)
-        if d1[1] == 0 and d2[1] > 0: return True
-        d1[1], d2[1] = -d1[1], -d2[1]
+    def is_worse_desicion(c1, c2, priorities):
+        c1, c2 = list(c1), list(c2)
+        if c1[1] == 0 and c2[1] > 0: return True
+        c1[1], c2[1] = -c1[1], -c2[1]
         for i in priorities:
-            if (d1[i] > d2[i]):
+            if (c1[i] > c2[i]):
                 return True
-            elif d1[i] < d2[i]:
+            elif c1[i] < c2[i]:
                 return False
         return False
 
@@ -84,6 +91,16 @@ class Network:
 
     def to_dict(self) -> dict:
         return {'nodes': [n.to_dict() for n in self.nodes]}
+
+    def cost_less(self, c1, c2):
+        if c1[0] == 0 and c2[0] > 0: return True
+        c1[0], c2[0] = -c1[0], -c2[0]
+        for i in self.priorities:
+            if (c1[i] > c2[i]):
+                return True
+            elif c1[i] < c2[i]:
+                return False
+        return False
 
     def coincidences_prob(self, coincidences, prob, case):
         for c in coincidences:
@@ -184,23 +201,69 @@ class Network:
                 else:
                     targets[source].remove(target)
 
-    def set_best_desicions(self, max_copies, contacts, t) -> None:
-        sended_copies = {}
-        targets = {}
+    def contacts_by_source(self, contacts):
+        contacts_by_source = {}
+        for c in contacts:
+            if c.from_n not in contacts_by_source.keys():
+                contacts_by_source[c.from_n-1] = {}
+            contacts_by_source[c.from_n-1][c] = c
+        return contacts_by_source
+
+    def costs(self, case, contacts_possible_states):
+        i = 0
+        case_without_next = list(filter(lambda x: x != 0, case))
+        costs = np.zeros(3)
+        delay_cases = []
+        i_failed_cases = [()]
+        for failed in i_failed_cases:
+            copies_and_probs = {}
+            for id in case:
+                if id in failed:
+                    state_and_probability = contacts_possible_states[id][FAIL]
+                else:
+                    state_and_probability = contacts_possible_states[id][SUCCESS]
+                if state_and_probability[:2] not in copies_and_probs.keys():
+                    copies_and_probs[state_and_probability[:2]] = [1,0]
+                copies_and_probs[state_and_probability[:2]][0] *= state_and_probability[PROB_INDEX]
+                copies_and_probs[state_and_probability[:2]][1] += 1
+            for state in copies_and_probs.keys():
+                state_costs = self.rute_table[state[T_INDEX], state[SOURCE_INDEX], self.target, copies_and_probs[state][1]]
+                if state_costs[SDP_INDEX] > 0:
+                    delay_cases.append((copies_and_probs[state][0], state_costs[DELAY_INDEX] + state[T_INDEX] - self.t))
+                costs += np.append(state_costs[1:3]* copies_and_probs[state][0], 0)
+            i += 1
+            i_failed_cases = itertools.combinations(case_without_next, i)
+        costs[2] = self.estimate_delay(delay_cases)
+        return costs
+
+    def set_best_desicions(self, max_copies, contacts) -> None:
+        contacts_by_source = self.contacts_by_source(contacts)
         for i in range(max_copies): #revisar si se envio o no en la copia anterior
-            best_desicions = {}
-            for c in contacts:
-                next_t = t+c.delay
-                self.source = c.from_n - 1
-                self.init_state(t, sended_copies, targets, best_desicions, i)
-                for self.target in targets[self.source]:
-                    if i > 0:
-                        best_desicions[self.source][self.target] = [self.next_decision(t, sended_copies[self.source][self.target]), (self.source + 1, t+1), 1]
-                    success_coincidences, fail_coincidences = self.coincidences(sended_copies[self.source][self.target], next_t, c.to)
-                    decision = self.send_decision(success_coincidences, fail_coincidences, c, next_t)
-                    if decision[SDP_INDEX] > 0 and Decision.is_worse_desicion(best_desicions[self.source][self.target][0], decision, self.priorities):
-                        best_desicions[self.source][self.target] = [decision, (c.to, next_t), c.pf]
-            self.update_state(t, sended_copies, targets, best_desicions, i)
+            for self.source in contacts_by_source.keys():
+                desicions_possible_states = {0: [self.t+1, self.source, 1]}
+                for c in contacts_by_source[self.source]:
+                    desicions_possible_states[c.id] = [[self.t+c.delay, c.to-1, 1-c.pf], [self.t+c.delay, self.source, c.pf]]
+                for self.target in range(self.node_number):
+                    best_desicion = None
+                    desicions = list(contacts_by_source[self.source].keys()) + [0]
+                    cases = itertools.combinations_with_replacement(desicions, i)
+                    for case in cases:
+                        costs = self.costs(case, desicions_possible_states)
+                        if best_desicion is None or self.cost_less(costs, best_desicion):
+                            best_desicion = [list(case)] +  costs.tolist()
+                    self.rute_table[self.t][self.source][self.target][i] = best_desicion
+            # for c in contacts:
+            #     next_t = t+c.delay
+            #     self.source = c.from_n - 1
+            #     self.init_state(t, sended_copies, targets, best_desicions, i)
+            #     for self.target in targets[self.source]:
+            #         if i > 0:
+            #             best_desicions[self.source][self.target] = [self.next_decision(t, sended_copies[self.source][self.target]), (self.source + 1, t+1), 1]
+            #         success_coincidences, fail_coincidences = self.coincidences(sended_copies[self.source][self.target], next_t, c.to)
+            #         decision = self.send_decision(success_coincidences, fail_coincidences, c, next_t)
+            #         if decision[SDP_INDEX] > 0 and Decision.is_worse_desicion(best_desicions[self.source][self.target][0], decision, self.priorities):
+            #             best_desicions[self.source][self.target] = [decision, (c.to, next_t), c.pf]
+            # self.update_state(t, sended_copies, targets, best_desicions, i)
 
 
 
@@ -210,18 +273,21 @@ class Network:
 
     def run_multiobjective_derivation(self, bundle_size=1, max_copies = 1):
         # self.start_time = 81000
-        self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies, 4), dtype=np.float)
-        for node in range(self.node_number):
-            self.rute_table[self.end_time][node][node][0] = [0, 1, 0, 0]
-        self.set_delays(bundle_size)
-        for t in range(self.end_time-1, self.start_time -1, -1):
+        # copies_array = [[[], 0., 0., 0.] for i in range(1,max_copies+1)]
+        self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies, 4), dtype=object)
+        # self.rute_table[:][:][:][:] = copies_array
+        for t in range(self.start_time, self.end_time):
             for node in range(self.node_number):
-                self.rute_table[t][node]= self.rute_table[t+1][node] + np.array([0, 0, 0, 1])
-                self.rute_table[t][node][node][0] = [0, 1, 0, 0]
-                # self.rute_table[t][node][node+1:] = self.rute_table[t+1][node][node+1:] + np.array([0, 0, 0, 1])
-                # self.rute_table[t][node][:,:,0] = node + 1
-            contacts = self.contacts_in_slot(t)
-            self.set_best_desicions(max_copies, contacts, t)
+                self.rute_table[self.end_time][node][node][:] = [0, 1, 0, 0]
+        self.set_delays(bundle_size)
+        for self.t in range(self.end_time-1, self.start_time -1, -1):
+            # for node in range(self.node_number):
+            #     self.rute_table[self.t][node]= self.rute_table[self.t+1][node] + np.array([0, 0, 0, 1])
+            #     # self.rute_table[t][node][node][0] = [0, 1, 0, 0]
+            #     self.rute_table[self.t][node][node+1:] = self.rute_table[self.t+1][node][node+1:] + np.array([0, 0, 0, 1])
+            #     # self.rute_table[t][node][:,:,0] = node + 1
+            contacts = self.contacts_in_slot(self.t)
+            self.set_best_desicions(max_copies, contacts)
 
 
     def print_table(self):

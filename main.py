@@ -6,7 +6,7 @@ import network
 priorities = [1,2,3]
 file = 'simple_case.txt'
 bundle_size = 1
-max_copies = 2
+max_copies = 1
 time_start = time.perf_counter()
 args = sys.argv
 if (len(args) > 1):
@@ -38,4 +38,4 @@ time_elapsed = (time.perf_counter()- time_start)
 memMb=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.0/1024.0
 print ("%5.1f n_secs %5.1f MByte" % (time_elapsed,memMb))
 
-net.export_rute_table([5,3], copies=max_copies)
+# net.export_rute_table([5,3], copies=max_copies)
