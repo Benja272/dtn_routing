@@ -94,6 +94,7 @@ class Network:
         return {'nodes': [n.to_dict() for n in self.nodes]}
 
     def is_worst(self, c1, c2):
+        c1, c2 = c1.copy(), c2.copy()
         if c1[0] == 0 and c2[0] > 0: return True
         c1[0], c2[0] = -c1[0], -c2[0]
         for i in self.priorities:
@@ -205,7 +206,7 @@ class Network:
     def contacts_by_source(self, contacts):
         contacts_by_source = {}
         for c in contacts:
-            if c.from_n not in contacts_by_source.keys():
+            if c.from_n-1 not in contacts_by_source.keys():
                 contacts_by_source[c.from_n-1] = {}
             contacts_by_source[c.from_n-1][c.id] = c
         return contacts_by_source
@@ -251,13 +252,13 @@ class Network:
                     desicions_possible_states[c.id] = [[self.t+c.delay, c.to-1, 1-c.pf, 1], [self.t+c.delay, self.source, c.pf, 1]]
                 for self.target in range(self.node_number):
                     if self.target == self.source: continue
-                    # if self.target == 5 and self.source == 3 and self.t == 2:ipdb.set_trace()
+                    # if self.source==0 and self.target == 2 and self.t == 0:ipdb.set_trace()
                     best_desicion = self.rute_table[self.t][self.source][self.target][i].copy()
                     desicions = [0] + list(contacts_by_source[self.source].keys())
                     cases = list(itertools.combinations_with_replacement(desicions, i+1))[1:]
                     for case in cases:
                         costs = self.costs(case, desicions_possible_states)
-                        if costs[0] > 0 and self.is_worst(best_desicion[1:].copy(), costs):
+                        if costs[0] > 0 and self.is_worst(best_desicion[1:], costs):
                             best_desicion = [list(case)] +  costs.tolist()
                     self.rute_table[self.t][self.source][self.target][i] = best_desicion
             # for c in contacts:
@@ -294,6 +295,7 @@ class Network:
                 self.rute_table[self.t, node, :node, :, DELAY_INDEX] += 1
                 self.rute_table[self.t, node, node+1:, :, DELAY_INDEX] += 1
             #     self.rute_table[self.t][node][node+1:] = self.rute_table[self.t+1][node][node+1:] + np.array([0, 0, 0, 1])
+
             contacts = self.contacts_in_slot(self.t)
             self.set_best_desicions(max_copies, contacts)
 
