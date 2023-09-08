@@ -3,7 +3,7 @@ import time
 import resource
 import network
 
-priorities = [1,2,3]
+priorities = [0,1,2]
 file = 'simple_case.txt'
 bundle_size = 1
 max_copies = 1
@@ -23,7 +23,7 @@ if (len(args) > 1):
                 max_copies = int(value)
             case default:
                 print("Bad Option ", option)
-                print("The options are: --priorities=[1,2,3] --contact_plan=filename.txt --bundle_size=1 --max_copies=2")
+                print("The options are: --priorities=[0,1,2] --contact_plan=filename.txt --bundle_size=1 --max_copies=2")
                 exit()
 
 net = network.Network.from_contact_plan("./use_cases/" + file, priorities=priorities)
