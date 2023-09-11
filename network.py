@@ -234,36 +234,36 @@ class Network:
     def fail_case_info(self, case, failed, contacts_possible_states):
         energy = 0
         fail_case_prob = 1
-        copies_and_probs = {}
+        copies_and_prob = {}
         for id in case.keys():
             if id in failed:
                 state_prob_energy = contacts_possible_states[id][FAIL]
             else:
                 state_prob_energy = contacts_possible_states[id][SUCCESS]
             state_key = tuple(state_prob_energy[:2])
-            if state_key not in copies_and_probs.keys():#separar caso next del resto
-                copies_and_probs[state_key] = [-1, 1]
+            if state_key not in copies_and_prob.keys():#separar caso next del resto
+                copies_and_prob[state_key] = [-1, 1]
             fail_case_prob *= state_prob_energy[PROBABILITY]
             energy += state_prob_energy[ENERGY]
-            copies_and_probs[state_key][0] += case[id]
-            copies_and_probs[state_key][1] *= state_prob_energy[PROBABILITY]
-        return copies_and_probs, fail_case_prob, energy
+            copies_and_prob[state_key][0] += case[id]
+            copies_and_prob[state_key][1] *= state_prob_energy[PROBABILITY]
+        return copies_and_prob, fail_case_prob, energy
 
     def estimate_desicion(self, case, contacts_possible_states):
         contact_fail_count = 0
         delay_cases = []
         i_failed_cases = [()]
         desicion, case_without_next_or_repeats = self.setup(case)
-        # if self.source==0 and self.target == 2 and self.t == 0:ipdb.set_trace()
+        # if self.source==0 and self.target == 3 and self.t == 0:ipdb.set_trace()
 
         while contact_fail_count < len(case_without_next_or_repeats)+1:
             for failed in i_failed_cases:
                 sdp = 0
-                copies_and_probs, fail_case_prob, energy = self.fail_case_info(case, failed, contacts_possible_states)
-                for state in copies_and_probs.keys():
-                    state_costs = self.rute_table[state[T], state[SOURCE], self.target, copies_and_probs[state][0]].copy()
+                copies_and_prob, fail_case_prob, energy = self.fail_case_info(case, failed, contacts_possible_states)
+                for state in copies_and_prob.keys():
+                    state_costs = self.rute_table[state[T], state[SOURCE], self.target, copies_and_prob[state][0]].copy()
                     if state_costs[SDP_INDEX] > 0:
-                        delay_cases.append((copies_and_probs[state][1], state_costs[DELAY_INDEX] + state[T] - self.t))
+                        delay_cases.append((copies_and_prob[state][1], state_costs[DELAY_INDEX] + state[T] - self.t))
                     desicion[ENERGY_INDEX] +=  fail_case_prob * state_costs[ENERGY_INDEX]
                     sdp += state_costs[SDP_INDEX]
                 if sdp > 1:
