@@ -352,8 +352,8 @@ class Network:
                 send_to.append({'copies': routes[to], 'route': [to]})
             rute_dict[target][str(t)][key] = send_to
 
-    def export_rute_table(self, targets, copies=1, pf=0.5):
-        assert len(self.rute_table[0][0][0]) >= copies
+    def export_rute_table(self, targets, pf=0.5):
+        copies = len(self.rute_table[0][0][0])
         copies_str = str(copies)
         pf_str = f'{pf:.2f}'
         rute_dict = {}
