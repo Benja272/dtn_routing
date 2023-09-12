@@ -221,14 +221,15 @@ class Network:
         return contacts_keys
 
     def setup(self, case):
-        case_without_next = list(filter(lambda x: x != 0, case.keys()))
+        counter_case = Counter(case)
+        case_without_next = list(filter(lambda x: x != 0, case))
         case_without_next_or_repeats = list(set(case_without_next))
         desicion = np.zeros(4, dtype=object)
-        if case[NEXT] > 0:
-            desicion[CONTACTS_ID_INDEX] = case_without_next + self.rute_table[self.t+1, self.source, self.target, case[NEXT]-1, CONTACTS_ID_INDEX]
+        if counter_case[NEXT] > 0:
+            desicion[CONTACTS_ID_INDEX] = case_without_next + self.rute_table[self.t+1, self.source, self.target, counter_case[NEXT]-1, CONTACTS_ID_INDEX]
         else:
             desicion[CONTACTS_ID_INDEX] = case_without_next
-        return desicion, case_without_next_or_repeats
+        return desicion, counter_case, case_without_next_or_repeats
 
 
     def fail_case_info(self, case, failed, contacts_possible_states):
@@ -253,7 +254,7 @@ class Network:
         contact_fail_count = 0
         delay_cases = []
         i_failed_cases = [()]
-        desicion, case_without_next_or_repeats = self.setup(case)
+        desicion, case, case_without_next_or_repeats = self.setup(case)
         # if self.source==0 and self.target == 3 and self.t == 0:ipdb.set_trace()
 
         while contact_fail_count < len(case_without_next_or_repeats)+1:
@@ -297,7 +298,7 @@ class Network:
                     best_desicion = self.rute_table[self.t][self.source][self.target][i].copy()
                     cases = self.cases(best_desicion[SDP_INDEX], contacts_by_source[self.source], i)
                     for case in cases:
-                        desicion = self.estimate_desicion(Counter(case), desicions_possible_states)
+                        desicion = self.estimate_desicion(case, desicions_possible_states)
                         if desicion[SDP_INDEX] > 0 and self.is_worst(best_desicion[1:], desicion[1:]):
                             best_desicion = desicion
                     self.rute_table[self.t][self.source][self.target][i] = best_desicion
@@ -341,32 +342,33 @@ class Network:
             with open(folder + "/todtnsim-" + str(target) + "-" + copies_str + "-" + pf_str + ".json", "w") as file:
                 json.dump(rute_dict[target], file)
 
-    def routes(self, rute_dict, source, target, t, copies_str):
+    def routes(self, rute_dict, source, target, t, copies, copies_str):
         if source == target: return
         send_to = []
         str_source = str(source+1)
         if self.rute_table[t][source][target][0][SDP_INDEX] > 0:
             key = str_source + ":" + copies_str
-            routes = Counter(map(lambda x: int(x[CONTACTS_ID_INDEX]), filter(lambda x: x[SDP_INDEX] > 0, self.rute_table[t][source][target])))
+            routes = Counter(self.rute_table[t][source][target][copies][CONTACTS_ID_INDEX])
             for to in routes.keys():
                 send_to.append({'copies': routes[to], 'route': [to]})
             rute_dict[target][str(t)][key] = send_to
 
     def export_rute_table(self, targets, pf=0.5):
         copies = len(self.rute_table[0][0][0])
-        copies_str = str(copies)
         pf_str = f'{pf:.2f}'
         rute_dict = {}
         targets = [t-1 for t in targets]
-        for target in targets:
-            rute_dict[target] = {}
-            for t in range(self.start_time, self.end_time):
-                rute_dict[target][str(t)] = {}
-                for source in range(self.node_number):
-                    self.routes(rute_dict, source, target, t, copies_str)
-        folder = "pf="+ pf_str
-        self.create_folder(folder)
-        self.dump_rute_table(folder, rute_dict, targets, copies_str, pf_str)
+        for i in range(copies):
+            copies_str = str(i+1)
+            for target in targets:
+                rute_dict[target] = {}
+                for t in range(self.start_time, self.end_time):
+                    rute_dict[target][str(t)] = {}
+                    for source in range(self.node_number):
+                        self.routes(rute_dict, source, target, t, i, copies_str)
+            folder = "pf="+ pf_str
+            self.create_folder(folder)
+            self.dump_rute_table(folder, rute_dict, targets, copies_str, pf_str)
 
 
 
