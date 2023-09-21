@@ -1,7 +1,7 @@
 import sys
 import time
 import resource
-import network
+import network1
 
 priorities = [0,1,2]
 file = 'simple_case.txt'
@@ -26,7 +26,7 @@ if (len(args) > 1):
                 print("The options are: --priorities=[0,1,2] --contact_plan=filename.txt --bundle_size=1 --max_copies=2")
                 exit()
 
-net = network.Network.from_contact_plan("./use_cases/" + file, priorities=priorities)
+net = network1.Network.from_contact_plan("./use_cases/" + file, priorities=priorities)
 
 print("Time on creating network: ", time.perf_counter() - time_start)
 

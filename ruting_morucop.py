@@ -6,7 +6,7 @@ import numpy as np
 import itertools
 import json
 import os
-import ipdb
+# import ipdb
 
 NEXT = 0
 
@@ -81,6 +81,10 @@ class Network:
         self.contacts.sort(key=lambda c: c.t_until, reverse=True)
         assert len(priorities) == 3 and 0 in priorities and 1 in priorities and 2 in priorities
         print("Network created with %d nodes, %d slots, %d contacts and priorities %s"%(node_number, self.slot_range, len(contacts), priorities))
+
+    def set_pf(self, pf):
+        for c in self.contacts:
+            c.pf = pf
 
     @staticmethod
     def from_contact_plan(cp_path: str, pf: float = 0.5, priorities = [0,1,2]):
@@ -263,7 +267,7 @@ class Network:
                 copies_and_prob, fail_case_prob, energy = self.fail_case_info(case, failed, contacts_possible_states)
                 for state in copies_and_prob.keys():
                     state_costs = self.rute_table[state[T], state[SOURCE], self.target, copies_and_prob[state][0]].copy()
-                    if state_costs[SDP_INDEX] > 0:
+                    if state_costs[SDP_INDEX] > 0 and copies_and_prob[state][1] > 0:
                         delay_cases.append((copies_and_prob[state][1], state_costs[DELAY_INDEX] + state[T] - self.t))
                     desicion[ENERGY_INDEX] +=  fail_case_prob * state_costs[ENERGY_INDEX]
                     sdp += state_costs[SDP_INDEX]
@@ -296,7 +300,12 @@ class Network:
                 for self.target in range(self.node_number):
                     if self.target == self.source: continue
                     best_desicion = self.rute_table[self.t][self.source][self.target][i].copy()
-                    cases = self.cases(best_desicion[SDP_INDEX], contacts_by_source[self.source], i)
+                    next_sdp = best_desicion[SDP_INDEX]
+                    if i > 0:
+                        desicion_with_less_copies = self.rute_table[self.t][self.source][self.target][i-1].copy()
+                        if self.is_worst(best_desicion[1:], desicion_with_less_copies[1:]):
+                            best_desicion = desicion_with_less_copies
+                    cases = self.cases(next_sdp, contacts_by_source[self.source], i)
                     for case in cases:
                         desicion = self.estimate_desicion(case, desicions_possible_states)
                         if desicion[SDP_INDEX] > 0 and self.is_worst(best_desicion[1:], desicion[1:]):
@@ -353,7 +362,7 @@ class Network:
                 send_to.append({'copies': routes[to], 'route': [to]})
             rute_dict[target][str(t)][key] = send_to
 
-    def export_rute_table(self, targets, pf=0.5):
+    def export_rute_table(self, targets, path="", pf=0.5):
         copies = len(self.rute_table[0][0][0])
         pf_str = f'{pf:.2f}'
         rute_dict = {}
@@ -366,7 +375,7 @@ class Network:
                     rute_dict[target][str(t)] = {}
                     for source in range(self.node_number):
                         self.routes(rute_dict, source, target, t, i, copies_str)
-            folder = "pf="+ pf_str
+            folder = path + "/pf="+ pf_str
             self.create_folder(folder)
             self.dump_rute_table(folder, rute_dict, targets, copies_str, pf_str)
 
