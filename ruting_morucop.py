@@ -110,14 +110,6 @@ class Network:
                 return False
         return False
 
-    def coincidences_prob(self, coincidences, prob, case):
-        for c in coincidences:
-            if c in case:
-                prob *= c[1]
-            else:
-                prob *= (1 - c[1])
-        return prob
-
     def estimate_delay(self, success_cases):
         delay = 0
         total = sum([c[0] for c in success_cases])
@@ -138,76 +130,6 @@ class Network:
                 contacts.append(self.contacts[i])
             i += 1
         return contacts
-
-
-    def case_cost(self, coincidences_base, coincidences, next_t, prob, delay, energy=1):
-        i = 0
-        success_cases = []
-        sdp_energy_sum = np.zeros(2)
-        i_failed_cases = [()]
-        while i < len(coincidences)+1:
-            case_i = self.rute_table[next_t][self.source][self.target][coincidences_base + i].copy()
-            for failed in i_failed_cases:
-                coin_prob = self.coincidences_prob(coincidences, prob, failed)
-                sdp_energy_cost = Decision.estimate_sdp_energy(coin_prob, case_i, energy)
-                if sdp_energy_cost[0] > 0:
-                    success_cases.append((coin_prob, delay + case_i[DELAY_INDEX]))
-                sdp_energy_sum = np.add(sdp_energy_sum, sdp_energy_cost)
-            i += 1
-            i_failed_cases = itertools.combinations(coincidences, i)
-
-        return sdp_energy_sum, success_cases
-
-
-
-
-    def send_decision(self, succes_coincidences, fail_coincidences, contact, next_t):
-        success_case = self.rute_table[next_t][contact.to-1][self.target][succes_coincidences].copy()
-        if success_case[SDP_INDEX] > 0:
-            success_sdp_energy_sum = np.array([success_case[1], success_case[2]])
-            if succes_coincidences == 0:
-                success_sdp_energy_sum = Decision.estimate_sdp_energy((1 - contact.pf), success_case)
-            fail_sdp_energy_sum, success_cases = self.case_cost(0, fail_coincidences, next_t, contact.pf, contact.delay)
-            success_cases.append((1 - contact.pf, contact.delay + success_case[DELAY_INDEX]))
-            sdp_energy_sum = np.add(success_sdp_energy_sum, fail_sdp_energy_sum)
-            return np.concatenate(([contact.id], sdp_energy_sum, [self.estimate_delay(success_cases)]))
-        else:
-            return [0, 0, 0, 0]
-
-
-
-    def coincidences(self, sended_copies, next_t, target):
-        success_coincidences = 0
-        fail_coincidences = []
-        for s in sended_copies.keys():
-            if s[1] == next_t and s[0] == target: #usa mismo contacto
-                success_coincidences += 1
-            elif s[1] == next_t:
-                fail_coincidences.append((s[0], sended_copies[s])) #coincidentes en el tiempo en caso de fallar
-        return success_coincidences, fail_coincidences
-
-    def next_decision(self, t, sended_copies):
-        success_coincidences, fail_coincidences = self.coincidences(sended_copies, t+1, self.source + 1)
-        sdp_energy_sum, success_cases = self.case_cost(success_coincidences, fail_coincidences, t+1, 1, 1, energy=0)
-        return [0] + list(sdp_energy_sum) + [self.estimate_delay(success_cases)]
-
-    def init_state(self, t, sended_copies, targets, best_desicions, copies):
-        if self.source not in sended_copies.keys():
-            sended_copies[self.source] = [{} for i in range(self.node_number)]
-            targets[self.source] = [i for i in range(self.node_number)]
-        if self.source not in best_desicions.keys():
-            best_desicions[self.source] = [(self.rute_table[t][self.source][target][copies].copy(), (self.source + 1, t+1), 1) for target in range(self.node_number)]
-
-    def update_state(self, t, sended_copies, targets, best_desicions, copies):
-        for source in best_desicions.keys():
-            nodes = targets[source].copy()
-            for target in nodes:
-                best_desicion, best_send_pair, pf = best_desicions[source][target]
-                if best_desicion[SDP_INDEX] > 0:
-                    sended_copies[source][target][best_send_pair] = pf
-                    self.rute_table[t][source][target][copies] = best_desicion
-                else:
-                    targets[source].remove(target)
 
     def contacts_by_source(self, contacts):
         contacts_by_source = {}
