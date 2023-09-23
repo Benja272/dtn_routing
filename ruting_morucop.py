@@ -70,11 +70,10 @@ class Contact:
         return [c for c in contacts if t+c.delay <= endtime]
 
 class Network:
-    def __init__(self, contacts: List[Contact], start_time, end_time, node_number, priorities):
-        self.index = 0
-        self.start_time = start_time
-        self.end_time = end_time
-        self.slot_range = end_time - start_time+1
+    def __init__(self, contacts: List[Contact], start_time, end_time, node_number, priorities, ts_duration: int = 1):
+        self.start_time = start_time // ts_duration
+        self.end_time = end_time // ts_duration
+        self.slot_range = self.end_time - self.start_time+1
         self.node_number = node_number
         self.priorities = priorities
         self.contacts = contacts
@@ -87,14 +86,15 @@ class Network:
             c.pf = pf
 
     @staticmethod
-    def from_contact_plan(cp_path: str, pf: float = 0.5, priorities = [0,1,2]):
+    def from_contact_plan(cp_path: str, pf: float = 0.5, priorities = [0,1,2], ts_duration: int = 1):
         contacts = []
         cp = ContactPlan.parse_contact_plan(cp_path)
         for c in cp.contacts:
-            contacts.append(Contact(c.id, c.source, c.target, (c.start_t, c.end_t), pf, c.data_rate))
-            # nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), pf, c.data_rate))
+            if c.end_t - c.start_t >= ts_duration:
+                contacts.append(Contact(c.id, c.source, c.target, (c.start_t//ts_duration, c.end_t//ts_duration), pf, c.data_rate))
+                # nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), pf, c.data_rate))
 
-        return Network(contacts, cp.start_time, cp.end_time, cp.node_number, priorities)
+        return Network(contacts, cp.start_time, cp.end_time, cp.node_number, priorities, ts_duration)
 
     def to_dict(self) -> dict:
         return {'nodes': [n.to_dict() for n in self.nodes]}
@@ -242,6 +242,7 @@ class Network:
 
     def run_multiobjective_derivation(self, bundle_size=1, max_copies = 1):
         # self.start_time = 81000
+        self.index = 0
         self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies, 4), dtype=object)
         for node in range(self.node_number):
             self.rute_table[self.end_time, node, node, :] = [[0], 1, 0, 0]
@@ -288,7 +289,6 @@ class Network:
         copies = len(self.rute_table[0][0][0])
         pf_str = f'{pf:.2f}'
         rute_dict = {}
-        targets = [t-1 for t in targets]
         for i in range(copies):
             copies_str = str(i+1)
             for target in targets:

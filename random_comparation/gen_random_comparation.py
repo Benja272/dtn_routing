@@ -20,11 +20,12 @@ SEED = 10
 PATH_TO_RESULT = 'results'
 SOURCES = range(8) # Nodes that will send packages to every target (except themselves)
 TARGETS = range(8) # Nodes that will recieve packages from every sources
-COPIES_RNG = [1] #[1,2,3]
+COPIES_RNG = [2] #[1,2,3]
 NET_RNG = [0,1] #range(10)
 TS_DURATION_IN_SECONDS = 10 # Duration of a single time stamp
 random.seed(SEED) # Seed to generate random networks
 NUM_OF_REPS = 1000 # Number of simulations that will be runned in OMNET++ for BRUF/IBRUF simulation
+TRAFIC = dict((s+1, [t+1 for t in TARGETS if t != s]) for s in SOURCES)
 
 def generate_random_networks():
     '''
@@ -77,7 +78,7 @@ def generate_random_networks():
         net_obj.print_dtnsim_cp_to_file(TS_DURATION_IN_SECONDS, 100, dtnsim_cp_path)
 
 def rucop():
-    exp_commands = ['base_dir="$PWD"']
+    # exp_commands = ['base_dir="$PWD"']
     for net in NET_RNG:
         net_path = os.path.join(PATH_TO_RESULT, f'net{net}', f'net-{net}-seed={SEED}.py')
         net_obj = Net.get_net_from_file(net_path, contact_pf_required=False)
@@ -100,7 +101,7 @@ def rucop():
             print("aca")
             #IBRUF
             #Generate link to BRUF-x with x<copies bc it is required to compute IBRUF that BRUF-x be all in the same directory
-            working_dir = os.path.join(PATH_TO_RESULT, f'net{net}', f'copies={copies}', f'IRUCoPn-{copies}')
+            working_dir = os.path.join(PATH_TO_RESULT, f'net{net}', f'copies={copies}', f'IRUCoPn')
             os.makedirs(working_dir, exist_ok=True)
             for c in range(1, copies):
                 link_source = os.path.join("..", f'copies={c}', f'BRUF-{c}')
@@ -125,35 +126,61 @@ def rucop():
 
             ini_path = os.path.join(working_dir, 'run.ini')
             frouting_path = 'routing_files/'
-            traffic = dict((s+1, [t+1 for t in TARGETS if t != s]) for s in SOURCES)
-            generate_omnet_ini_file(net_obj.num_of_nodes, traffic, f'IRUCoPn-{copies}', ini_path,
+            generate_omnet_ini_file(net_obj.num_of_nodes, TRAFIC, f'IRUCoPn-{copies}', ini_path,
                                     os.path.relpath(cp_path, working_dir), frouting_path=frouting_path,
                                     ts_duration=TS_DURATION_IN_SECONDS, repeats=NUM_OF_REPS)
 
             generate_bash_script('run.ini', os.path.join(working_dir, 'run_simulation.sh'), DTNSIM_PATH)
-            exp_commands.append(f'echo && echo [Running] {working_dir} && echo '
-                                f'&& cd {os.path.relpath(working_dir, PATH_TO_RESULT)} && bash run_simulation.sh && rm results/*.out && cd "$base_dir" '
-                                # f'&& cd ../'
-                                f'&& pwd'
-                                f'&& python -OO /home/benja/Documents/facu/tesis/project/random_comparation/utils/parametric_compute_metrics.py . net{net} {os.path.join(*working_dir.split("/")[2:])} {NUM_OF_REPS} '
-                                f'&& bash /home/experiment/rucopvsdss/utils/delete_results.sh . net{net}/copies={copies} {f"IRUCoPn-{copies}"}'
-                                f'&& cd "$base_dir"'
-                                )
+            # exp_commands.append(f'echo && echo [Running] {working_dir} && echo '
+            #                     f'&& cd {os.path.relpath(working_dir, PATH_TO_RESULT)} && bash run_simulation.sh && rm results/*.out && cd "$base_dir" '
+            #                     # f'&& cd ../'
+            #                     f'&& pwd'
+            #                     f'&& python -OO /home/benja/Documents/facu/tesis/project/random_comparation/utils/parametric_compute_metrics.py . net{net} {os.path.join(*working_dir.split("/")[2:])} {NUM_OF_REPS} '
+            #                     f'&& bash /home/experiment/rucopvsdss/utils/delete_results.sh . net{net}/copies={copies} {f"IRUCoPn-{copies}"}'
+            #                     f'&& cd "$base_dir"'
+            #                     )
 
-    with open(os.path.join(PATH_TO_RESULT, 'run_experiment.sh'), 'w') as f:
-        f.write('#!/bin/bash \n')
-        f.write(' && \n'.join(exp_commands))
+    # with open(os.path.join(PATH_TO_RESULT, 'run_experiment.sh'), 'w') as f:
+    #     f.write('#!/bin/bash \n')
+    #     f.write(' && \n'.join(exp_commands))
+
 
 def morucop():
     for n in NET_RNG:
-        network = net.Network.from_contact_plan(f'./results/net{n}/0.2_{n}_seed={SEED}_reflexive.dtnsim')
-        for pf in [i / 100 for i in range(0, 110, 10)]:
-            network.set_pf(pf)
-            network.run_multiobjective_derivation(1, max_copies=len(COPIES_RNG))
-            network.export_rute_table(TARGETS, path=f'./results/net{n}/MORUCOP', pf=pf)
+        path_to_net = f"./results/net{n}/"
+        path_to_cp = path_to_net + f'0.2_{n}_seed={SEED}_reflexive.dtnsim'
+        network = net.Network.from_contact_plan(path_to_cp, ts_duration=TS_DURATION_IN_SECONDS)
+        for copies in COPIES_RNG:
+            path_to_morucop_folder = path_to_net + f'copies={copies}/MORUCOP/'
+            for pf in [i / 100 for i in range(0, 110, 10)]:
+                network.set_pf(pf)
+                print(network.contacts[0])
+                network.run_multiobjective_derivation(1, max_copies=copies)
+                network.export_rute_table(TARGETS, path=path_to_morucop_folder+ 'routing_files', pf=pf)
+            ini_file = path_to_morucop_folder + 'run.ini'
+            generate_omnet_ini_file(network.node_number, TRAFIC, f'IRUCoPn-{copies}',
+                                    ini_file, f'../../0.2_{n}_seed={SEED}_reflexive.dtnsim', frouting_path='routing_files/',
+                                    ts_duration=TS_DURATION_IN_SECONDS, repeats=NUM_OF_REPS)
+            generate_bash_script('run.ini', path_to_morucop_folder + 'run_simulation.sh', DTNSIM_PATH)
 
 
+def generate_comparation_script(routing_algorithms):
+    with open(os.path.join(PATH_TO_RESULT, 'run_experiment.sh'), 'w') as f:
+        f.write('#!/bin/bash \nbase_dir="$PWD"\n')
+        for routig_algorithm in routing_algorithms:
+            for net in NET_RNG:
+                for copies in COPIES_RNG:
+                    path_to_sim = os.path.join(f'net{net}', f'copies={copies}', f"{routig_algorithm}")
+                    f.write(f'echo [Running] {path_to_sim}'
+                            f'&& cd {path_to_sim} && bash run_simulation.sh && rm results/*.out && cd "$base_dir" '
+                            f'&& cd ../'
+                            f'&& pwd'
+                            f'&& python -OO /home/benja/Documents/facu/tesis/project/random_comparation/utils/parametric_compute_metrics.py results net{net} copies={copies}/{routig_algorithm} {NUM_OF_REPS} '
+                            f'&& bash /home/benja/Documents/facu/tesis/project/random_comparation/utils/delete_results.sh results net{net}/copies={copies} {routig_algorithm}'
+                            f'&& cd "$base_dir" \n'
+                            )
 
 # generate_random_networks()
 # rucop()
-morucop()
+# morucop()
+generate_comparation_script(['MORUCOP', 'IRUCoPn'])
