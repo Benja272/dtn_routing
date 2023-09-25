@@ -182,5 +182,5 @@ def generate_comparation_script(routing_algorithms):
 
 # generate_random_networks()
 # rucop()
-# morucop()
-generate_comparation_script(['MORUCOP', 'IRUCoPn'])
+morucop()
+# generate_comparation_script(['MORUCOP', 'IRUCoPn'])

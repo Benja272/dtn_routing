@@ -2,6 +2,7 @@
 from contact_plan import ContactPlan
 from collections import Counter
 from typing import List
+from math import ceil
 import numpy as np
 import itertools
 import json
@@ -53,7 +54,7 @@ class Contact:
         assert self.t_since < self.t_until
 
     def set_delay(self, data_size: int):
-        self.delay = int(data_size / self.data_rate)
+        self.delay = ceil(data_size / self.data_rate)
 
     def __str__(self):
         return 'send_to:%d_from:%d_since:%d_until:%d_pf:%f'%(self.to, self.from_n, self.t_since, self.t_until, self.pf)
