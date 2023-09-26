@@ -1,20 +1,20 @@
 
 from contact_plan import ContactPlan
 from collections import Counter
-from typing import List
+from typing import List, Dict, Any
 from math import ceil
 import numpy as np
 import itertools
 import json
 import os
-# import ipdb
+import ipdb
 
 NEXT = 0
 
 SUCCESS = 0
 FAIL = 1
 
-T = 0
+DELAY = 0
 SOURCE = 1
 PROBABILITY= 2
 ENERGY = 3
@@ -132,7 +132,7 @@ class Network:
             i += 1
         return contacts
 
-    def contacts_by_source(self, contacts):
+    def contacts_by_source(self, contacts: List[Contact])->Dict[int, Contact]:
         contacts_by_source = {}
         for c in contacts:
             if c.from_n-1 not in contacts_by_source.keys():
@@ -140,58 +140,60 @@ class Network:
             contacts_by_source[c.from_n-1][c.id] = c
         return contacts_by_source
 
-    def useful_contacts_ids(self, contacts):
+    def useful_contacts_ids(self, contacts:Dict[int, Contact]):
         contacts_keys = []
         for id in contacts.keys():
-            if self.rute_table[self.t+1, contacts[id].to-1, self.target, 0, SDP_INDEX] > 0:
+            if self.rute_table[self.t+contacts[id].delay, contacts[id].to-1, self.target, 0, SDP_INDEX] > 0:
                 contacts_keys.append(id)
         return contacts_keys
 
     def setup(self, case):
         counter_case = Counter(case)
-        case_without_next = list(filter(lambda x: x != 0, case))
-        case_without_next_or_repeats = list(set(case_without_next))
+        case_without_repeats = list(set(case))
         desicion = np.zeros(4, dtype=object)
-        if counter_case[NEXT] > 0:
-            desicion[CONTACTS_ID_INDEX] = case_without_next + self.rute_table[self.t+1, self.source, self.target, counter_case[NEXT]-1, CONTACTS_ID_INDEX]
-        else:
-            desicion[CONTACTS_ID_INDEX] = case_without_next
-        return desicion, counter_case, case_without_next_or_repeats
+        desicion[CONTACTS_ID_INDEX] = case_without_repeats
+        return desicion, counter_case, case_without_repeats
 
 
     def fail_case_info(self, case, failed, contacts_possible_states):
         energy = 0
         fail_case_prob = 1
-        copies_and_prob = {}
+        copies_prob_delay = {}
         for id in case.keys():
             if id in failed:
                 state_prob_energy = contacts_possible_states[id][FAIL]
             else:
                 state_prob_energy = contacts_possible_states[id][SUCCESS]
-            state_key = tuple(state_prob_energy[:2])
-            if state_key not in copies_and_prob.keys():#separar caso next del resto
-                copies_and_prob[state_key] = [-1, 1]
+            next_contact_to_use = \
+                self.rute_table[state_prob_energy[DELAY], state_prob_energy[SOURCE], self.target, 0, CONTACTS_ID_INDEX]
+            if next_contact_to_use != 0:
+                next_contact_to_use = next_contact_to_use[0]
+            state_key = (next_contact_to_use, state_prob_energy[SOURCE])
+            if state_key not in copies_prob_delay.keys():#separar caso next del resto
+                copies_prob_delay[state_key] = [-1, 1, state_prob_energy[DELAY]]
             fail_case_prob *= state_prob_energy[PROBABILITY]
             energy += state_prob_energy[ENERGY]
-            copies_and_prob[state_key][0] += case[id]
-            copies_and_prob[state_key][1] *= state_prob_energy[PROBABILITY]
-        return copies_and_prob, fail_case_prob, energy
+            copies_prob_delay[state_key][0] += case[id]
+            copies_prob_delay[state_key][1] *= state_prob_energy[PROBABILITY]
+            copies_prob_delay[state_key][2] = max([state_prob_energy[DELAY], copies_prob_delay[state_key][2]])
+        return copies_prob_delay, fail_case_prob, energy
 
     def estimate_desicion(self, case, contacts_possible_states):
         contact_fail_count = 0
         delay_cases = []
         i_failed_cases = [()]
-        desicion, case, case_without_next_or_repeats = self.setup(case)
+        desicion, case, case_without_repeats = self.setup(case)
         # if self.source==0 and self.target == 3 and self.t == 0:ipdb.set_trace()
 
-        while contact_fail_count < len(case_without_next_or_repeats)+1:
+        while contact_fail_count < len(case_without_repeats)+1:
             for failed in i_failed_cases:
                 sdp = 0
-                copies_and_prob, fail_case_prob, energy = self.fail_case_info(case, failed, contacts_possible_states)
-                for state in copies_and_prob.keys():
-                    state_costs = self.rute_table[state[T], state[SOURCE], self.target, copies_and_prob[state][0]].copy()
-                    if state_costs[SDP_INDEX] > 0 and copies_and_prob[state][1] > 0:
-                        delay_cases.append((copies_and_prob[state][1], state_costs[DELAY_INDEX] + state[T] - self.t))
+                # ipdb.set_trace()
+                copies_prob_delay, fail_case_prob, energy = self.fail_case_info(case, failed, contacts_possible_states)
+                for state in copies_prob_delay.keys():
+                    state_costs = self.rute_table[self.t + copies_prob_delay[state][2], state[SOURCE], self.target, copies_prob_delay[state][0]].copy()
+                    if state_costs[SDP_INDEX] > 0 and copies_prob_delay[state][1] > 0:
+                        delay_cases.append((copies_prob_delay[state][1], state_costs[DELAY_INDEX] + copies_prob_delay[state][2]))
                     desicion[ENERGY_INDEX] +=  fail_case_prob * state_costs[ENERGY_INDEX]
                     sdp += state_costs[SDP_INDEX]
                 if sdp > 1:
@@ -199,43 +201,62 @@ class Network:
                 desicion[ENERGY_INDEX] += fail_case_prob * energy
                 desicion[SDP_INDEX] += fail_case_prob * sdp
             contact_fail_count += 1
-            i_failed_cases = itertools.combinations(case_without_next_or_repeats, contact_fail_count)
+            i_failed_cases = itertools.combinations(case_without_repeats, contact_fail_count)
         desicion[DELAY_INDEX] = self.estimate_delay(delay_cases)
         return desicion
 
-    def cases(self, next_sdp, contacts, copies):
-        if next_sdp == 0:
-            desicions = self.useful_contacts_ids(contacts)
-            start = 0
-        else:
-            desicions = [0] + self.useful_contacts_ids(contacts)
-            start = 1
-        cases = list(itertools.combinations_with_replacement(desicions, copies+1))[start:]
+    def cases(self, best_desicion: List[Any], contacts: Dict[int, Contact], copies):
+        desicions = self.useful_contacts_ids(contacts)
+        cases = list(itertools.combinations_with_replacement(desicions, copies+1))
+        if best_desicion[SDP_INDEX] != 0:
+            case_to_remove = best_desicion[CONTACTS_ID_INDEX]
+            if len(case_to_remove) == 1 and copies >= 1:
+                case_to_remove = [case_to_remove[0] for i in range(copies+1)]
+            elif tuple(case_to_remove) not in cases:
+                case_to_remove.reverse()
+            cases.remove(tuple(case_to_remove))
         return cases
 
-    def set_best_desicions(self, max_copies, contacts) -> None:
-        contacts_by_source = self.contacts_by_source(contacts)
-        for i in range(max_copies): #revisar si se envio o no en la copia anterior
+#considerar pasar directamenta la info del contacto en caso de la desicion next, teniendo en cuenta todos los posibles ids para 
+# todas las cantidades de copias, el problema esta con esta desicion next
+    def set_best_desicions(self, contacts_in_slot: List[Contact]) -> None:
+        contacts_by_source = self.contacts_by_source(contacts_in_slot)
+        for i in range(self.max_copies): #revisar si se envio o no en la copia anterior
             for self.source in contacts_by_source.keys():
-                desicions_possible_states = {0: [[self.t+1, self.source, 1, 0]]}
+                desicions_possible_states = {}
                 for c in contacts_by_source[self.source].values():
-                    desicions_possible_states[c.id] = [[self.t+c.delay, c.to-1, 1-c.pf, 1], [self.t+c.delay, self.source, c.pf, 1]]
+                    desicions_possible_states[c.id] = [[c.delay, c.to-1, 1-c.pf, 1], [c.delay, self.source, c.pf, 1]]
                 for self.target in range(self.node_number):
                     if self.target == self.source: continue
+                    # if self.source==4 and self.target == 0 and self.t == 1:ipdb.set_trace()
+                    posible_states = desicions_possible_states.copy()
+                    contacts = contacts_by_source[self.source].copy()
                     best_desicion = self.rute_table[self.t][self.source][self.target][i].copy()
-                    next_sdp = best_desicion[SDP_INDEX]
+                    self.add_next_contacts(posible_states, best_desicion, contacts)
+                    cases = self.cases(best_desicion, contacts, i)
                     if i > 0:
                         desicion_with_less_copies = self.rute_table[self.t][self.source][self.target][i-1].copy()
                         if self.is_worst(best_desicion[1:], desicion_with_less_copies[1:]):
                             best_desicion = desicion_with_less_copies
-                    cases = self.cases(next_sdp, contacts_by_source[self.source], i)
                     for case in cases:
-                        desicion = self.estimate_desicion(case, desicions_possible_states)
+                        desicion = self.estimate_desicion(case, posible_states)
                         if desicion[SDP_INDEX] > 0 and self.is_worst(best_desicion[1:], desicion[1:]):
                             best_desicion = desicion
                     self.rute_table[self.t][self.source][self.target][i] = best_desicion
 
-
+    def add_next_contacts(self, desicions_possible_states, best_desicion, contacts_by_source):
+        contacts_by_id = self.contacts_by_source_id[self.source]
+        if best_desicion[SDP_INDEX] > 0:
+            for copies in range(self.max_copies-1, 0, -1):
+                desicion_contact_ids = best_desicion[CONTACTS_ID_INDEX]
+                for id in desicion_contact_ids:
+                    contact = contacts_by_id[id]
+                    if id not in desicions_possible_states.keys():
+                        contacts_by_source[id] = contact
+                        delay = contact.delay + contact.t_since - self.t
+                        desicions_possible_states[id] = \
+                            [[delay, contact.to-1, 1-contact.pf, 1], [delay, self.source, contact.pf, 1]]
+                best_desicion = self.rute_table[self.t][self.source][self.target][copies-1]
 
     def set_delays(self, bundle_size):
         for contact in self.contacts:
@@ -243,11 +264,13 @@ class Network:
 
     def run_multiobjective_derivation(self, bundle_size=1, max_copies = 1):
         # self.start_time = 81000
+        self.max_copies = max_copies
         self.index = 0
         self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies, 4), dtype=object)
         for node in range(self.node_number):
             self.rute_table[self.end_time, node, node, :] = [[0], 1, 0, 0]
         self.set_delays(bundle_size)
+        self.contacts_by_source_id = self.contacts_by_source(self.contacts)
         for self.t in range(self.end_time-1, self.start_time -1, -1):
             for node in range(self.node_number):
                 self.rute_table[self.t, node]= self.rute_table[self.t+1][node].copy()
@@ -255,7 +278,7 @@ class Network:
                 self.rute_table[self.t, node, node+1:, :, DELAY_INDEX] += 1
 
             contacts = self.contacts_in_slot(self.t)
-            self.set_best_desicions(max_copies, contacts)
+            self.set_best_desicions(contacts)
 
 
     def print_table(self):
