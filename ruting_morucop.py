@@ -7,7 +7,7 @@ import numpy as np
 import itertools
 import json
 import os
-# import ipdb
+import ipdb
 
 NEXT = 0
 
@@ -56,8 +56,19 @@ class Contact:
     def set_delay(self, data_size: int):
         self.delay = ceil(data_size / self.data_rate)
 
+    def slot(self, t:int):
+        if t < self.t_until:
+            slot = t - self.t_since
+            if slot < 0:
+                return 0
+            return slot
+        else:
+            ipdb.set_trace()
+            print(self, "T:", t)
+            raise Exception("Contacto fuera de rango")
+
     def __str__(self):
-        return 'send_to:%d_from:%d_since:%d_until:%d_pf:%f'%(self.to, self.from_n, self.t_since, self.t_until, self.pf)
+        return 'id:%d_send_to:%d_from:%d_since:%d_until:%d_pf:%f'%(self.id, self.to, self.from_n, self.t_since, self.t_until, self.pf)
 
     def to_dict(self) -> dict:
         d = {'from':self.from_, 'to': self.to, 'ts': self.ts}
@@ -132,7 +143,13 @@ class Network:
             i += 1
         return contacts
 
-    def contacts_by_source(self, contacts):
+    def by_id(self):
+        contacts_by_id = {}
+        for c in self.contacts:
+            contacts_by_id[c.id] = c
+        return contacts_by_id
+
+    def by_source(self, contacts):
         contacts_by_source = {}
         for c in contacts:
             if c.from_n-1 not in contacts_by_source.keys():
@@ -152,10 +169,28 @@ class Network:
         case_without_next = list(filter(lambda x: x != 0, case))
         case_without_next_or_repeats = list(set(case_without_next))
         desicion = np.zeros(4, dtype=object)
+        desicion[CONTACTS_ID_INDEX] = []
+        # if self.source == 0 and self.target == 2 and self.t == 7:
         if counter_case[NEXT] > 0:
-            desicion[CONTACTS_ID_INDEX] = case_without_next + self.rute_table[self.t+1, self.source, self.target, counter_case[NEXT]-1, CONTACTS_ID_INDEX]
-        else:
-            desicion[CONTACTS_ID_INDEX] = case_without_next
+            desicion[CONTACTS_ID_INDEX] = self.rute_table[self.t+1, self.source, self.target, counter_case[NEXT]-1, CONTACTS_ID_INDEX].copy()
+        for id in counter_case.keys():
+            if id == NEXT: continue
+            copies = counter_case[id]
+            contact = self.contacts_by_id[id]
+            if contact.to-1 == self.target:
+                desicion[CONTACTS_ID_INDEX].append([id, []])
+                continue
+            t = self.t + contact.delay
+            contacts_ids = self.rute_table[t, contact.to-1, self.target, copies-1, CONTACTS_ID_INDEX].copy()
+            counter_case[id] = min(len(contacts_ids), counter_case[id])
+            for i in range(counter_case[id]):
+                coincidences= contacts_ids[i][1].copy()
+                new_coincidence = [contacts_ids[i][0], self.contacts_by_id[contacts_ids[i][0]].slot(t)]
+                if new_coincidence not in coincidences:
+                    coincidences.append(new_coincidence)
+                desicion[CONTACTS_ID_INDEX].append([id, coincidences])
+                # print(id, list(map(lambda c: c[0] , id_coincidences[1])))
+
         return desicion, counter_case, case_without_next_or_repeats
 
 
@@ -168,14 +203,25 @@ class Network:
                 state_prob_energy = contacts_possible_states[id][FAIL]
             else:
                 state_prob_energy = contacts_possible_states[id][SUCCESS]
-            state_key = tuple(state_prob_energy[:2])
+            state_key = tuple(state_prob_energy[:2]) #t, source
             if state_key not in copies_and_prob.keys():#separar caso next del resto
                 copies_and_prob[state_key] = [-1, 1]
             fail_case_prob *= state_prob_energy[PROBABILITY]
             energy += state_prob_energy[ENERGY]
-            copies_and_prob[state_key][0] += case[id]
+            copies_and_prob[state_key][0] += case[id] #copies
             copies_and_prob[state_key][1] *= state_prob_energy[PROBABILITY]
         return copies_and_prob, fail_case_prob, energy
+
+    def estimate_costs(self, copies_and_prob, desicion, fail_case_prob, delay_cases):
+        sdp = 0
+        for state in copies_and_prob.keys():
+            state_costs = self.rute_table[state[T], state[SOURCE], self.target, copies_and_prob[state][0]].copy()
+            if state_costs[SDP_INDEX] > 0 and copies_and_prob[state][1] > 0:
+                delay_cases.append((copies_and_prob[state][1], state_costs[DELAY_INDEX] + state[T] - self.t))
+            desicion[ENERGY_INDEX] +=  fail_case_prob * state_costs[ENERGY_INDEX]
+            sdp += state_costs[SDP_INDEX]
+        return delay_cases, sdp
+
 
     def estimate_desicion(self, case, contacts_possible_states):
         contact_fail_count = 0
@@ -186,18 +232,12 @@ class Network:
 
         while contact_fail_count < len(case_without_next_or_repeats)+1:
             for failed in i_failed_cases:
-                sdp = 0
                 copies_and_prob, fail_case_prob, energy = self.fail_case_info(case, failed, contacts_possible_states)
-                for state in copies_and_prob.keys():
-                    state_costs = self.rute_table[state[T], state[SOURCE], self.target, copies_and_prob[state][0]].copy()
-                    if state_costs[SDP_INDEX] > 0 and copies_and_prob[state][1] > 0:
-                        delay_cases.append((copies_and_prob[state][1], state_costs[DELAY_INDEX] + state[T] - self.t))
-                    desicion[ENERGY_INDEX] +=  fail_case_prob * state_costs[ENERGY_INDEX]
-                    sdp += state_costs[SDP_INDEX]
-                if sdp > 1:
-                    sdp = 1
-                desicion[ENERGY_INDEX] += fail_case_prob * energy
-                desicion[SDP_INDEX] += fail_case_prob * sdp
+                delay_cases, sdp = self.estimate_costs(copies_and_prob, desicion, fail_case_prob, delay_cases)
+            if sdp > 1:
+                sdp = 1
+            desicion[SDP_INDEX] += fail_case_prob * sdp
+            desicion[ENERGY_INDEX] += fail_case_prob * energy
             contact_fail_count += 1
             i_failed_cases = itertools.combinations(case_without_next_or_repeats, contact_fail_count)
         desicion[DELAY_INDEX] = self.estimate_delay(delay_cases)
@@ -214,7 +254,7 @@ class Network:
         return cases
 
     def set_best_desicions(self, max_copies, contacts) -> None:
-        contacts_by_source = self.contacts_by_source(contacts)
+        contacts_by_source = self.by_source(contacts)
         for i in range(max_copies): #revisar si se envio o no en la copia anterior
             for self.source in contacts_by_source.keys():
                 desicions_possible_states = {0: [[self.t+1, self.source, 1, 0]]}
@@ -236,6 +276,48 @@ class Network:
                     self.rute_table[self.t][self.source][self.target][i] = best_desicion
 
 
+# #considerar pasar directamenta la info del contacto en caso de la desicion next, teniendo en cuenta todos los posibles ids para 
+# # todas las cantidades de copias, el problema esta con esta desicion next
+#     def set_best_desicions(self, contacts_in_slot: List[Contact]) -> None:
+#         contacts_by_source = self.contacts_by_source(contacts_in_slot)
+#         for i in range(self.max_copies): #revisar si se envio o no en la copia anterior
+#             for self.source in contacts_by_source.keys():
+#                 desicions_possible_states = {}
+#                 for c in contacts_by_source[self.source].values():
+#                     desicions_possible_states[c.id] = [[c.delay, c.to-1, 1-c.pf, 1], [c.delay, self.source, c.pf, 1]]
+#                 for self.target in range(self.node_number):
+#                     if self.target == self.source: continue
+#                     # if self.source==4 and self.target == 0 and self.t == 1:ipdb.set_trace()
+#                     posible_states = desicions_possible_states.copy()
+#                     contacts = contacts_by_source[self.source].copy()
+#                     best_desicion = self.rute_table[self.t][self.source][self.target][i].copy()
+#                     self.add_next_contacts(posible_states, best_desicion, contacts)
+#                     cases = self.cases(best_desicion, contacts, i)
+#                     if i > 0:
+#                         desicion_with_less_copies = self.rute_table[self.t][self.source][self.target][i-1].copy()
+#                         if self.is_worst(best_desicion[1:], desicion_with_less_copies[1:]):
+#                             best_desicion = desicion_with_less_copies
+#                     for case in cases:
+#                         desicion = self.estimate_desicion(case, posible_states)
+#                         if desicion[SDP_INDEX] > 0 and self.is_worst(best_desicion[1:], desicion[1:]):
+#                             best_desicion = desicion
+#                     self.rute_table[self.t][self.source][self.target][i] = best_desicion
+
+#     def add_next_contacts(self, desicions_possible_states, best_desicion, contacts_by_source):
+#         contacts_by_id = self.contacts_by_source_id[self.source]
+#         if best_desicion[SDP_INDEX] > 0:
+#             for copies in range(self.max_copies-1, 0, -1):
+#                 desicion_contact_ids = best_desicion[CONTACTS_ID_INDEX]
+#                 for id in desicion_contact_ids:
+#                     contact = contacts_by_id[id]
+#                     if id not in desicions_possible_states.keys():
+#                         contacts_by_source[id] = contact
+#                         delay = contact.delay + contact.t_since - self.t
+#                         desicions_possible_states[id] = \
+#                             [[delay, contact.to-1, 1-contact.pf, 1], [delay, self.source, contact.pf, 1]]
+#                 best_desicion = self.rute_table[self.t][self.source][self.target][copies-1]
+
+
 
     def set_delays(self, bundle_size):
         for contact in self.contacts:
@@ -248,6 +330,7 @@ class Network:
         for node in range(self.node_number):
             self.rute_table[self.end_time, node, node, :] = [[0], 1, 0, 0]
         self.set_delays(bundle_size)
+        self.contacts_by_id = self.by_id()
         for self.t in range(self.end_time-1, self.start_time -1, -1):
             for node in range(self.node_number):
                 self.rute_table[self.t, node]= self.rute_table[self.t+1][node].copy()
