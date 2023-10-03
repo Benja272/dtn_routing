@@ -22,21 +22,23 @@ if (len(args) > 1):
             bundle_size = int(value)
         elif "--max_copies" == option:
             max_copies = int(value)
+        elif "--ts_duration" == option:
+            ts_duration = int(value)
         else:
             print("Bad Option ", option)
             print("The options are: --priorities=[0,1,2] --contact_plan=filename.txt --bundle_size=1 --max_copies=2")
             exit()
 
-net = ruting_morucop.Network.from_contact_plan("./use_cases/" + file, priorities=priorities, ts_duration=10)
+net = ruting_morucop.Network.from_contact_plan("./use_cases/" + file, priorities=priorities, ts_duration=ts_duration)
 
 print("Time on creating network: ", time.perf_counter() - time_start)
 
 time_start = time.perf_counter()
 #run your code
 net.run_multiobjective_derivation(bundle_size, max_copies)
-net.print_table()
+# net.print_table()
 time_elapsed = (time.perf_counter()- time_start)
 memMb=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.0/1024.0
 print ("%5.1f n_secs %5.1f MByte" % (time_elapsed,memMb))
 
-net.export_rute_table([5,3])
+# net.export_rute_table([5,3])
