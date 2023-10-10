@@ -6,7 +6,7 @@ import numpy as np
 import itertools
 import json
 import os
-import ipdb
+# import ipdb
 
 NODE_ID_INDEX = 0
 SDP_INDEX = 1
@@ -209,7 +209,7 @@ class Network:
 
     def run_multiobjective_derivation(self, bundle_size=1, max_copies = 1):
         # self.start_time = 81000
-        self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies, 4), dtype=np.float)
+        self.rute_table = np.zeros((self.slot_range, self.node_number, self.node_number, max_copies, 4), dtype=np.float64)
         for node in range(self.node_number):
             self.rute_table[self.end_time][node][node][0] = [node + 1, 1, 0, 0]
         self.set_delays(bundle_size)
