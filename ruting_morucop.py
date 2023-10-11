@@ -226,7 +226,6 @@ class Network:
                     # if sdp > 1:
                     #     sdp = 1
                 else:
-                    # if copies == 1 and self.target == 5: ipdb.set_trace()
                     fail_state_costs = self.less_copies_state_costs(fail_state, copies)
                 if fail_state_costs is not None:
                     costs[ENERGY_INDEX] +=  fail_case_prob * (energy + fail_state_costs[ENERGY_INDEX])
@@ -265,6 +264,7 @@ class Network:
         transitions_by_target = self.transitions_by_target(contacts_in_slot) #cambiar para mas copias que 1
         for copies in range(self.max_copies): #revisar si se envio o no en la copia anterior
             for self.target in range(self.node_number):
+                # if copies == 1 and self.target == 4 and self.t == 1: ipdb.set_trace()
                 for state_key in self.states[self.t+1][self.target][copies].keys():
                     state_counter = Counter(state_key)
                     to_target_transitions = []
@@ -333,29 +333,29 @@ class Network:
             with open(folder + "/todtnsim-" + str(target) + "-" + copies_str + "-" + pf_str + ".json", "w") as file:
                 json.dump(rute_dict[target], file)
 
-    def routes(self, rute_dict, source, target, t, copies, copies_str):
-        if source == target: return
-        send_to = []
-        str_source = str(source+1)
-        if self.rute_table[t][source][target][0][SDP_INDEX] > 0:
-            key = str_source + ":" + copies_str
-            routes = Counter(self.rute_table[t][source][target][copies][CONTACTS_ID_INDEX])
-            for to in routes.keys():
-                send_to.append({'copies': routes[to], 'route': [to]})
-            rute_dict[target][str(t)][key] = send_to
+    def routes(self, rute_dict, target, t, copies, copies_str):
+        for state, state_info in self.states[t, target, copies].items():
+            source = state[0]
+            if all(n == source for n in state) and source != target:
+                str_source = str(source+1)
+                key = str_source + ":" + copies_str
+                routes = Counter(state_info.contact_ids)
+                send_to = []
+                for to in routes.keys():
+                    send_to.append({'copies': routes[to], 'route': [to]})
+                rute_dict[target][str(t)][key] = send_to
 
-    def export_rute_table(self, targets, path="", pf=0.5):
-        copies = len(self.rute_table[0][0][0])
+
+    def export_rute_table(self, targets, path=".", pf=0.5):
         pf_str = f'{pf:.2f}'
         rute_dict = {}
-        for i in range(copies):
+        for i in range(self.max_copies):
             copies_str = str(i+1)
             for target in targets:
                 rute_dict[target] = {}
                 for t in range(self.start_time, self.end_time):
                     rute_dict[target][str(t)] = {}
-                    for source in range(self.node_number):
-                        self.routes(rute_dict, source, target, t, i, copies_str)
+                    self.routes(rute_dict, target, t, i, copies_str)
             folder = path + "/pf="+ pf_str
             self.create_folder(folder)
             self.dump_rute_table(folder, rute_dict, targets, copies_str, pf_str)

@@ -42,4 +42,4 @@ time_elapsed = (time.perf_counter()- time_start)
 memMb=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.0/1024.0
 print ("%5.1f n_secs %5.1f MByte" % (time_elapsed,memMb))
 
-# net.export_rute_table([5,3])
+net.export_rute_table(range(0, net.node_number))
