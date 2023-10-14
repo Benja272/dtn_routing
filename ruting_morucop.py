@@ -1,7 +1,7 @@
 
 from contact_plan import ContactPlan
 from collections import Counter
-from typing import List
+from typing import List, Any
 from math import ceil
 import numpy as np
 from itertools import combinations_with_replacement, combinations, product, chain
@@ -70,16 +70,18 @@ class Contact:
         return [c for c in contacts if t+c.delay <= endtime]
 
 class State:
-    def __init__(self, costs: List[float], contact_ids: List[int]=[]) -> None:
+    def __init__(self, costs: List[float], transition: List[Any]=[], contact_ids: List[int]=[]) -> None:
         self.contact_ids = contact_ids
         self.costs = costs
+        self.transition = transition
 
     def __str__(self) -> str:
         return 'contact_ids:%s costs(SDP: %f, ENERGY: %f, DELAY: %f)'%(self.contact_ids, self.costs[0], self.costs[1], self.costs[2])
 
-    def set(self, costs: List[float], contact_ids: List[int]=[]) -> None:
+    def set(self, costs: List[float], transition: List[Any]=[], contact_ids: List[int]=[]) -> None:
         self.contact_ids = contact_ids
         self.costs = costs
+        self.transition = transition
 
 
 class Network:
@@ -150,6 +152,12 @@ class Network:
             contacts_by_target[c.to-1].append(c.id)
         return contacts_by_target
 
+    def contacts_by_source(self, contacts: List[Contact]):
+        contacts_by_source = {node: [(node,)] for node in range(self.node_number)}
+        for c in contacts:
+            contacts_by_source[c.from_n-1].append(c.id)
+        return contacts_by_source
+
     def useful_contacts_ids(self, contacts):
         contacts_keys = []
         for id in contacts.keys():
@@ -210,30 +218,31 @@ class Network:
                 searching = not all(id in fail_state for id in states_keys[j])
                 j += 1
             if not searching:
-                return self.states[self.t][self.target][i][states_keys[j-1]].costs
+                return self.states[self.t+1][self.target][i][states_keys[j-1]].costs
 
     def estimate_costs(self, transition, copies):
         contact_fail_count = 0
         i_failed_cases = [()]
+        success_cases = []
         costs, transition_counter, case_without_next_or_repeats = self.setup(transition)
-        # if self.source==0 and self.target == 3 and self.t == 0:ipdb.set_trace()
 
         while contact_fail_count < len(case_without_next_or_repeats)+1:
             for failed in i_failed_cases:
                 fail_state, fail_case_prob, energy, delay = self.fail_case_info(transition_counter, failed, copies)
                 if fail_state in self.states[self.t+1][self.target][copies].keys():
                     fail_state_costs = self.states[self.t+1][self.target][copies][fail_state].costs
-                    # if sdp > 1:
-                    #     sdp = 1
                 else:
                     fail_state_costs = self.less_copies_state_costs(fail_state, copies)
                 if fail_state_costs is not None:
-                    costs[ENERGY_INDEX] +=  fail_case_prob * (energy + fail_state_costs[ENERGY_INDEX])
                     costs[SDP_INDEX] += fail_case_prob * fail_state_costs[SDP_INDEX]
-                    costs[DELAY_INDEX] += fail_case_prob * (delay + fail_state_costs[DELAY_INDEX])
+                    costs[ENERGY_INDEX] +=  fail_case_prob * (energy + fail_state_costs[ENERGY_INDEX])
+                    success_cases.append((fail_case_prob, delay + fail_state_costs[DELAY_INDEX]))
+                else:
+                    costs[ENERGY_INDEX] +=  fail_case_prob * energy
 
             contact_fail_count += 1
             i_failed_cases = combinations(case_without_next_or_repeats, contact_fail_count)
+        costs[DELAY_INDEX] = self.estimate_delay(success_cases)
         return costs
 
     def new_state_key(self, transition):
@@ -257,30 +266,60 @@ class Network:
                 next_transitions += 1
         if next_transitions > 0:
             state = node * next_transitions
-            contact_ids += self.states[self.t+1][self.target][next_transitions-1][state].contact_ids
+            if state in self.states[self.t+1][self.target][next_transitions-1].keys():
+                contact_ids += self.states[self.t+1][self.target][next_transitions-1][state].contact_ids
         return contact_ids
 
+    def lrucop_transitions(self, copies, contacts_by_source):
+        comb_sum = list(combinationSum(copies+1))
+        transitions = []
+        if copies > 0:
+            for comb in comb_sum:
+                counter = Counter(comb)
+                transitions_set = []
+                for c, amount in counter.items():
+                    trans = list(map(lambda s: s.transition, self.states[self.t, self.target, c-1].values()))
+                    transitions_set.append(list(combinations_with_replacement(trans, amount)))
+                prod = list(product(*transitions_set))
+                comb_transitions = [list(chain(*t[0])) for t in prod]
+                source_transitions = [list(combinations_with_replacement(contacts_by_source[source], copies+1)) for source in range(self.node_number)]
+                comb_transitions += list(filter(lambda trans: trans not in comb_transitions, [list(t) for t in chain(*source_transitions)]))
+                transitions += comb_transitions
+        return transitions
+
+    def rucop_transitions(self, copies, transitions_by_target):
+        transitions = []
+        for state_key in self.states[self.t+1][self.target][copies].keys():
+            state_counter = Counter(state_key)
+            to_target_transitions = []
+            for target in state_counter.keys():
+                to_target_transitions.append(list(combinations_with_replacement(transitions_by_target[target], state_counter[target])))
+            prod = list(product(*to_target_transitions))
+            transitions += [list(chain(*t)) for t in prod]
+        return transitions
+
+
     def set_best_desicions(self, contacts_in_slot) -> None:
-        transitions_by_target = self.transitions_by_target(contacts_in_slot) #cambiar para mas copias que 1
+        transitions_by_target = self.transitions_by_target(contacts_in_slot)
+        if self.max_copies > 1:
+            contacts_by_source = self.contacts_by_source(contacts_in_slot)
         for copies in range(self.max_copies): #revisar si se envio o no en la copia anterior
             for self.target in range(self.node_number):
-                # if copies == 1 and self.target == 4 and self.t == 1: ipdb.set_trace()
-                for state_key in self.states[self.t+1][self.target][copies].keys():
-                    state_counter = Counter(state_key)
-                    to_target_transitions = []
-                    for target in state_counter.keys():
-                        to_target_transitions.append(list(combinations_with_replacement(transitions_by_target[target], state_counter[target])))
-                    transitions = list(product(*to_target_transitions))
-                    transitions = [list(chain(*t)) for t in transitions]
-                    for transition in transitions:
-                        # ipdb.set_trace()
-                        costs = self.estimate_costs(transition, copies)
+                if copies > 0:
+                    transitions = self.lrucop_transitions(copies, contacts_by_source)
+                else:
+                    transitions = self.rucop_transitions(copies, transitions_by_target)
+
+                for transition in transitions:
+                    # ipdb.set_trace()
+                    costs = self.estimate_costs(transition, copies)
+                    if costs[SDP_INDEX] > 0:
                         contact_ids = self.transition_contact_ids(transition)
                         new_state_key = self.new_state_key(transition)
                         if new_state_key not in self.states[self.t][self.target][copies].keys():
-                            self.states[self.t][self.target][copies][new_state_key] = State(costs, contact_ids)
+                            self.states[self.t][self.target][copies][new_state_key] = State(costs, transition, contact_ids)
                         elif self.is_worst(self.states[self.t][self.target][copies][new_state_key].costs, costs):
-                            self.states[self.t][self.target][copies][new_state_key].set(costs, contact_ids)
+                            self.states[self.t][self.target][copies][new_state_key].set(costs, transition, contact_ids)
 
     def by_id(self):
         self.contacts_by_id = {}
@@ -307,22 +346,19 @@ class Network:
         self.by_id()
         self.set_delays(bundle_size)
         for self.t in range(self.end_time-1, self.start_time -1, -1):
-            # for node in range(self.node_number):
-            #     self.rute_table[self.t, node]= self.rute_table[self.t+1][node].copy()
-            #     self.rute_table[self.t, node, :node, :, DELAY_INDEX] += 1
-            #     self.rute_table[self.t, node, node+1:, :, DELAY_INDEX] += 1
-
             contacts_in_slot = self.contacts_in_slot(self.t)
             self.set_best_desicions(contacts_in_slot)
 
 
     def print_table(self):
-        for t in range(self.end_time -1, self.start_time -1, -1):
-            for target in range(self.node_number):
-                for state, state_info in self.states[t, target, self.max_copies-1].items():
-                    source = state[0]
-                    if all(n == source for n in state) and source != target:
-                        print("En t=",t," desde ", source +1, " hasta ", target +1, " con ", state_info)
+        for c in range(self.max_copies):
+            print("----------------------------------------------------------------")
+            for t in range(self.end_time -1, self.start_time -1, -1):
+                for target in range(self.node_number):
+                    for state, state_info in self.states[t, target, c].items():
+                        source = state[0]
+                        if all(n == source for n in state) and source != target:
+                            print("En t=",t," desde ", source +1, " hasta ", target +1, " con ", state_info)
 
     def create_folder(self, folder):
         if not os.path.exists(folder):
@@ -359,6 +395,18 @@ class Network:
             folder = path + "/pf="+ pf_str
             self.create_folder(folder)
             self.dump_rute_table(folder, rute_dict, targets, copies_str, pf_str)
+
+
+def f(N, acumulate, combination):
+    if acumulate == N:
+        yield combination
+    for i in range(min(combination[-1], N-acumulate), 0, -1):
+        yield from f(N, acumulate + i, combination + [i])
+
+
+def combinationSum(N):
+    for i in range(1,N):
+        yield from f(N,i,[i])
 
 
 
