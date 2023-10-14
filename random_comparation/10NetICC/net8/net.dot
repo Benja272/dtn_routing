@@ -1,0 +1,318 @@
+digraph G { 
+
+rank=same;
+ranksep=equally;
+nodesep=equally;
+
+// TS = 0
+0.0[label=L0];
+1.0[label=L1];
+2.0[label=L2];
+3.0[label=L3];
+4.0[label=L4];
+5.0[label=L5];
+6.0[label=L6];
+7.0[label=L7];
+8.0[shape=box,fontsize=16,label="TS 0"];
+0.0 -> 1.0[style="invis"];
+1.0 -> 2.0[style="invis"];
+2.0 -> 3.0[style="invis"];
+3.0 -> 4.0[style="invis"];
+4.0 -> 5.0[style="invis"];
+5.0 -> 6.0[style="invis"];
+6.0 -> 7.0[style="invis"];
+7.0 -> 8.0[style="invis"];
+0.0 -> 5.0
+0.0 -> 6.0
+2.0 -> 0.0
+2.0 -> 6.0
+2.0 -> 7.0
+3.0 -> 4.0
+4.0 -> 1.0
+4.0 -> 3.0
+6.0 -> 3.0
+7.0 -> 0.0
+7.0 -> 6.0
+
+// TS = 1
+0.1[label=L0];
+1.1[label=L1];
+2.1[label=L2];
+3.1[label=L3];
+4.1[label=L4];
+5.1[label=L5];
+6.1[label=L6];
+7.1[label=L7];
+8.1[shape=box,fontsize=16,label="TS 1"];
+0.1 -> 1.1[style="invis"];
+1.1 -> 2.1[style="invis"];
+2.1 -> 3.1[style="invis"];
+3.1 -> 4.1[style="invis"];
+4.1 -> 5.1[style="invis"];
+5.1 -> 6.1[style="invis"];
+6.1 -> 7.1[style="invis"];
+7.1 -> 8.1[style="invis"];
+0.1 -> 5.1
+0.1 -> 6.1
+1.1 -> 6.1
+2.1 -> 4.1
+3.1 -> 1.1
+4.1 -> 1.1
+4.1 -> 2.1
+5.1 -> 4.1
+6.1 -> 2.1
+6.1 -> 4.1
+7.1 -> 4.1
+
+// TS = 2
+0.2[label=L0];
+1.2[label=L1];
+2.2[label=L2];
+3.2[label=L3];
+4.2[label=L4];
+5.2[label=L5];
+6.2[label=L6];
+7.2[label=L7];
+8.2[shape=box,fontsize=16,label="TS 2"];
+0.2 -> 1.2[style="invis"];
+1.2 -> 2.2[style="invis"];
+2.2 -> 3.2[style="invis"];
+3.2 -> 4.2[style="invis"];
+4.2 -> 5.2[style="invis"];
+5.2 -> 6.2[style="invis"];
+6.2 -> 7.2[style="invis"];
+7.2 -> 8.2[style="invis"];
+0.2 -> 1.2
+1.2 -> 6.2
+2.2 -> 7.2
+3.2 -> 2.2
+3.2 -> 4.2
+4.2 -> 5.2
+5.2 -> 7.2
+6.2 -> 5.2
+6.2 -> 7.2
+7.2 -> 1.2
+7.2 -> 3.2
+
+// TS = 3
+0.3[label=L0];
+1.3[label=L1];
+2.3[label=L2];
+3.3[label=L3];
+4.3[label=L4];
+5.3[label=L5];
+6.3[label=L6];
+7.3[label=L7];
+8.3[shape=box,fontsize=16,label="TS 3"];
+0.3 -> 1.3[style="invis"];
+1.3 -> 2.3[style="invis"];
+2.3 -> 3.3[style="invis"];
+3.3 -> 4.3[style="invis"];
+4.3 -> 5.3[style="invis"];
+5.3 -> 6.3[style="invis"];
+6.3 -> 7.3[style="invis"];
+7.3 -> 8.3[style="invis"];
+0.3 -> 2.3
+0.3 -> 3.3
+1.3 -> 0.3
+1.3 -> 4.3
+3.3 -> 0.3
+3.3 -> 2.3
+3.3 -> 4.3
+4.3 -> 0.3
+5.3 -> 2.3
+5.3 -> 4.3
+7.3 -> 2.3
+
+// TS = 4
+0.4[label=L0];
+1.4[label=L1];
+2.4[label=L2];
+3.4[label=L3];
+4.4[label=L4];
+5.4[label=L5];
+6.4[label=L6];
+7.4[label=L7];
+8.4[shape=box,fontsize=16,label="TS 4"];
+0.4 -> 1.4[style="invis"];
+1.4 -> 2.4[style="invis"];
+2.4 -> 3.4[style="invis"];
+3.4 -> 4.4[style="invis"];
+4.4 -> 5.4[style="invis"];
+5.4 -> 6.4[style="invis"];
+6.4 -> 7.4[style="invis"];
+7.4 -> 8.4[style="invis"];
+0.4 -> 1.4
+0.4 -> 6.4
+1.4 -> 2.4
+3.4 -> 4.4
+4.4 -> 0.4
+4.4 -> 2.4
+6.4 -> 1.4
+6.4 -> 3.4
+6.4 -> 7.4
+7.4 -> 0.4
+7.4 -> 2.4
+
+// TS = 5
+0.5[label=L0];
+1.5[label=L1];
+2.5[label=L2];
+3.5[label=L3];
+4.5[label=L4];
+5.5[label=L5];
+6.5[label=L6];
+7.5[label=L7];
+8.5[shape=box,fontsize=16,label="TS 5"];
+0.5 -> 1.5[style="invis"];
+1.5 -> 2.5[style="invis"];
+2.5 -> 3.5[style="invis"];
+3.5 -> 4.5[style="invis"];
+4.5 -> 5.5[style="invis"];
+5.5 -> 6.5[style="invis"];
+6.5 -> 7.5[style="invis"];
+7.5 -> 8.5[style="invis"];
+0.5 -> 4.5
+0.5 -> 6.5
+0.5 -> 7.5
+1.5 -> 0.5
+1.5 -> 2.5
+1.5 -> 6.5
+1.5 -> 7.5
+2.5 -> 3.5
+3.5 -> 4.5
+4.5 -> 5.5
+6.5 -> 2.5
+
+// TS = 6
+0.6[label=L0];
+1.6[label=L1];
+2.6[label=L2];
+3.6[label=L3];
+4.6[label=L4];
+5.6[label=L5];
+6.6[label=L6];
+7.6[label=L7];
+8.6[shape=box,fontsize=16,label="TS 6"];
+0.6 -> 1.6[style="invis"];
+1.6 -> 2.6[style="invis"];
+2.6 -> 3.6[style="invis"];
+3.6 -> 4.6[style="invis"];
+4.6 -> 5.6[style="invis"];
+5.6 -> 6.6[style="invis"];
+6.6 -> 7.6[style="invis"];
+7.6 -> 8.6[style="invis"];
+0.6 -> 6.6
+1.6 -> 7.6
+2.6 -> 0.6
+2.6 -> 4.6
+2.6 -> 5.6
+2.6 -> 6.6
+3.6 -> 5.6
+4.6 -> 2.6
+4.6 -> 6.6
+7.6 -> 1.6
+7.6 -> 2.6
+
+// TS = 7
+0.7[label=L0];
+1.7[label=L1];
+2.7[label=L2];
+3.7[label=L3];
+4.7[label=L4];
+5.7[label=L5];
+6.7[label=L6];
+7.7[label=L7];
+8.7[shape=box,fontsize=16,label="TS 7"];
+0.7 -> 1.7[style="invis"];
+1.7 -> 2.7[style="invis"];
+2.7 -> 3.7[style="invis"];
+3.7 -> 4.7[style="invis"];
+4.7 -> 5.7[style="invis"];
+5.7 -> 6.7[style="invis"];
+6.7 -> 7.7[style="invis"];
+7.7 -> 8.7[style="invis"];
+0.7 -> 1.7
+0.7 -> 2.7
+1.7 -> 2.7
+2.7 -> 1.7
+3.7 -> 2.7
+3.7 -> 4.7
+4.7 -> 7.7
+5.7 -> 6.7
+6.7 -> 7.7
+7.7 -> 1.7
+7.7 -> 3.7
+
+// TS = 8
+0.8[label=L0];
+1.8[label=L1];
+2.8[label=L2];
+3.8[label=L3];
+4.8[label=L4];
+5.8[label=L5];
+6.8[label=L6];
+7.8[label=L7];
+8.8[shape=box,fontsize=16,label="TS 8"];
+0.8 -> 1.8[style="invis"];
+1.8 -> 2.8[style="invis"];
+2.8 -> 3.8[style="invis"];
+3.8 -> 4.8[style="invis"];
+4.8 -> 5.8[style="invis"];
+5.8 -> 6.8[style="invis"];
+6.8 -> 7.8[style="invis"];
+7.8 -> 8.8[style="invis"];
+0.8 -> 1.8
+2.8 -> 1.8
+3.8 -> 4.8
+3.8 -> 6.8
+3.8 -> 7.8
+4.8 -> 3.8
+4.8 -> 5.8
+5.8 -> 3.8
+5.8 -> 6.8
+5.8 -> 7.8
+7.8 -> 0.8
+
+// TS = 9
+0.9[label=L0];
+1.9[label=L1];
+2.9[label=L2];
+3.9[label=L3];
+4.9[label=L4];
+5.9[label=L5];
+6.9[label=L6];
+7.9[label=L7];
+8.9[shape=box,fontsize=16,label="TS 9"];
+0.9 -> 1.9[style="invis"];
+1.9 -> 2.9[style="invis"];
+2.9 -> 3.9[style="invis"];
+3.9 -> 4.9[style="invis"];
+4.9 -> 5.9[style="invis"];
+5.9 -> 6.9[style="invis"];
+6.9 -> 7.9[style="invis"];
+7.9 -> 8.9[style="invis"];
+0.9 -> 7.9
+1.9 -> 2.9
+1.9 -> 4.9
+2.9 -> 3.9
+3.9 -> 0.9
+3.9 -> 1.9
+3.9 -> 5.9
+3.9 -> 7.9
+4.9 -> 7.9
+5.9 -> 7.9
+7.9 -> 3.9
+
+
+// Ranks
+{ rank = same; 0.0; 0.1; 0.2; 0.3; 0.4; 0.5; 0.6; 0.7; 0.8; 0.9;}
+{ rank = same; 1.0; 1.1; 1.2; 1.3; 1.4; 1.5; 1.6; 1.7; 1.8; 1.9;}
+{ rank = same; 2.0; 2.1; 2.2; 2.3; 2.4; 2.5; 2.6; 2.7; 2.8; 2.9;}
+{ rank = same; 3.0; 3.1; 3.2; 3.3; 3.4; 3.5; 3.6; 3.7; 3.8; 3.9;}
+{ rank = same; 4.0; 4.1; 4.2; 4.3; 4.4; 4.5; 4.6; 4.7; 4.8; 4.9;}
+{ rank = same; 5.0; 5.1; 5.2; 5.3; 5.4; 5.5; 5.6; 5.7; 5.8; 5.9;}
+{ rank = same; 6.0; 6.1; 6.2; 6.3; 6.4; 6.5; 6.6; 6.7; 6.8; 6.9;}
+{ rank = same; 7.0; 7.1; 7.2; 7.3; 7.4; 7.5; 7.6; 7.7; 7.8; 7.9;}
+ 
+}

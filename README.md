@@ -34,3 +34,4 @@ configurarse como `213`
 
 
 
+installar libsqlite3-dev antes de python3.6
