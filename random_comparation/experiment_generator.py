@@ -1,4 +1,6 @@
 from typing import List, Dict
+import os
+from settings import *
 
 CGR_FA = 'cgr-fa'
 CGR_MODEL350 = 'cgrModel350'
@@ -153,9 +155,46 @@ dtnsim.central.failureProbability = ${{failureProbability=0..1 step 0.1}}
     with open(output_file, 'w') as f:
         f.write(ini_file)
 
-def generate_bash_script(ini_name, output_path, dtnsim_path):
+# def generate_bash_script(ini_name, output_path, dtnsim_path):
+#     ini_file = '#!/bin/bash\n'
+#     ini_file += f'DTNSIM_PATH="{dtnsim_path}";\n'
+#     ini_file += f'opp_runall -j4 $DTNSIM_PATH/dtnsim {ini_name} -n $DTNSIM_PATH -u Cmdenv -c dtnsim;\n'
+#     with open(output_path, 'w') as f:
+#         f.write(ini_file)
+
+
+def generate_omnetpp_script(ini_names: List[str], output_path, dtnsim_path, net_path,
+                         parametric_compute_metrics_fpath=UTILS_PATH):
     ini_file = '#!/bin/bash\n'
-    ini_file += f'DTNSIM_PATH="{dtnsim_path}";\n'
-    ini_file += f'opp_runall -j4 $DTNSIM_PATH/dtnsim {ini_name} -n $DTNSIM_PATH -u Cmdenv -c dtnsim;\n'
+    ini_file += f'DTNSIM_PATH="{dtnsim_path}";\n\n'
+    for ini_name in ini_names:
+        # f'run-source={source}-target={target}.ini'
+        print(ini_name)
+        ini_file += f'opp_runall -j2 $DTNSIM_PATH/dtnsim {ini_name} -n $DTNSIM_PATH -u Cmdenv -c dtnsim && \n'
+        ini_file += f'current_dir="$PWD" && \n'
+        ini_file += f'cd {parametric_compute_metrics_fpath} && \n'
+        ini_file += f'python -OO parametric_compute_metrics.py "{os.path.dirname(os.path.abspath(__file__))}" "{net_path}" "" {NUM_OF_REPS_OMNET} && \n'
+        ini_file += f'cd "$current_dir"'
+
+    if ini_file.endswith("&& \n\n"):
+        ini_file = ini_file[:-5]
+
     with open(output_path, 'w') as f:
+        print(f.name)
         f.write(ini_file)
+
+def generate_exec_script(working_dir, net_path, copies, algorithm, f_output_name):
+    exp_commands = ['base_dir="$PWD"']
+    exp_commands.append(f'echo && echo [Running] {working_dir} && echo '
+                    f'&& cd {os.path.relpath(working_dir, PATH_TO_RESULT)}'
+                    f'&& bash run_simulation.sh && rm -f results/*.out && cd "$base_dir" '
+                    f'&& pwd'
+                    f'&& bash {UTILS_PATH}/delete_results.sh "{os.path.dirname(os.path.abspath(__file__))}" "{net_path}/copies={copies}" {f"{algorithm}"}'
+                    f'&& cd "$base_dir"'
+                    # f'&& bash delete_results.sh {PATH_TO_RESULT} net{net}/copies={copies} {f"IRUCoPn-{copies}"}'
+                    f'&& cd "$base_dir"'
+                    )
+
+    with open(os.path.join(PATH_TO_RESULT, f_output_name), 'w') as f:
+        f.write('#!/bin/bash \n')
+        f.write(' && \n'.join(exp_commands))

@@ -93,6 +93,7 @@ class Network:
         self.priorities = priorities
         self.contacts = contacts
         self.contacts.sort(key=lambda c: c.t_until, reverse=True)
+        self.rute_dict = {}
         assert len(priorities) == 3 and 0 in priorities and 1 in priorities and 2 in priorities
         print("Network created with %d nodes, %d slots, %d contacts and priorities %s"%(node_number, self.slot_range, len(contacts), priorities))
 
@@ -242,7 +243,8 @@ class Network:
 
             contact_fail_count += 1
             i_failed_cases = combinations(case_without_next_or_repeats, contact_fail_count)
-        costs[DELAY_INDEX] = self.estimate_delay(success_cases)
+        if costs[SDP_INDEX] > 0:
+            costs[DELAY_INDEX] = self.estimate_delay(success_cases)
         return costs
 
     def new_state_key(self, transition):
@@ -360,10 +362,6 @@ class Network:
                         if all(n == source for n in state) and source != target:
                             print("En t=",t," desde ", source +1, " hasta ", target +1, " con ", state_info)
 
-    def create_folder(self, folder):
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-
     def dump_rute_table(self, folder, rute_dict, targets, copies_str, pf_str):
         for target in targets:
             with open(folder + "/todtnsim-" + str(target) + "-" + copies_str + "-" + pf_str + ".json", "w") as file:
@@ -382,10 +380,11 @@ class Network:
                 rute_dict[target][str(t)][key] = send_to
 
 
-    def export_rute_table(self, targets, path=".", pf=0.5):
+    def export_rute_table(self, targets, copies, path=".", pf=0.5):
+        assert copies <= self.max_copies
         pf_str = f'{pf:.2f}'
         rute_dict = {}
-        for i in range(self.max_copies):
+        for i in range(copies):
             copies_str = str(i+1)
             for target in targets:
                 rute_dict[target] = {}
@@ -393,7 +392,7 @@ class Network:
                     rute_dict[target][str(t)] = {}
                     self.routes(rute_dict, target, t, i, copies_str)
             folder = path + "/pf="+ pf_str
-            self.create_folder(folder)
+            create_folder(folder)
             self.dump_rute_table(folder, rute_dict, targets, copies_str, pf_str)
 
 
@@ -408,7 +407,9 @@ def combinationSum(N):
     for i in range(1,N):
         yield from f(N,i,[i])
 
-
+def create_folder(folder):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
 
 # init_value = np.empty((), dtype=Decision_np)
 #         init_value[()]= (0, 0, slot_range, slot_range)

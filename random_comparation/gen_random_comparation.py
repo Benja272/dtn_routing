@@ -15,6 +15,7 @@ from experiment_generator import generate_omnet_ini_file, generate_bash_script
 from brufn.helper_ibrufn_function_generator6 import IBRUFNFunctionGenerator
 import ruting_morucop as net
 
+
 DTNSIM_PATH = "/home/benja/Documents/facu/tesis/project/dtnsim/dtnsim/src"
 SEED = 10
 PATH_TO_RESULT = 'results'
@@ -27,55 +28,7 @@ random.seed(SEED) # Seed to generate random networks
 NUM_OF_REPS = 1000 # Number of simulations that will be runned in OMNET++ for BRUF/IBRUF simulation
 TRAFIC = dict((s+1, [t+1 for t in TARGETS if t != s]) for s in SOURCES)
 
-def generate_random_networks():
-    '''
-    Generate a network with full duplex connection and at most 1 bidireccional contact per node.
-    The network is obtained from one of the 10 random networks used in ICC
-    '''
-    for net in NET_RNG:
-        path = os.path.join(PATH_TO_RESULT, f'net{net}'); os.makedirs(path, exist_ok=True)
-        path_to_net = os.path.join(path, f'net-{net}-seed={SEED}.py')
-        dtnsim_cp_path = os.path.join(path, f'0.2_{net}_seed={SEED}_reflexive.dtnsim')
-        if not os.path.isfile(path_to_net):
-            path = os.path.join(PATH_TO_RESULT, f'net{net}')
-            net_obj = Net.get_net_from_file('10NetICC/net0/net.py', contact_pf_required=False)
-            contacts_by_ts = dict((ts, []) for ts in range(net_obj.num_of_ts))
-            print("Number of contacts: ", len(net_obj.contacts))
-            for c in net_obj.contacts:
-                contacts_by_ts[c.ts].append(copy(c))
-                c_simetric = Contact(c.to, c.from_, c.ts, pf=c.pf, begin_time=c.begin_time, end_time=c.end_time)
-                if c_simetric not in net_obj.contacts:
-                    print(f"add {c_simetric}")
-                    contacts_by_ts[c.ts].append(c_simetric)
 
-            contacts = []
-            for ts in range(net_obj.num_of_ts):
-                nodes = list(range(net_obj.num_of_nodes))
-                while len(nodes) > 0:
-                    node = nodes.pop(0)
-                    snd_contacts = sorted([c for c in contacts_by_ts[ts] if node == c.from_], key=lambda c: c.to)
-                    rcv_contacts = sorted([c for c in contacts_by_ts[ts] if node == c.to], key=lambda c: c.from_)
-                    # According to cp2modest.py all contacts must be full-duplex (reflexive) and only one full-duplex communication is allowed
-                    if len(snd_contacts) == len(rcv_contacts):
-                        if len(snd_contacts) > 0:
-                            for i in random.sample(range(len(snd_contacts)), len(snd_contacts)):
-                                if snd_contacts[i].to in nodes:
-                                    contacts.append(snd_contacts[i])
-                                    contacts.append(rcv_contacts[i])
-                                    nodes.remove(snd_contacts[i].to)
-                                    assert snd_contacts[i].to == rcv_contacts[i].from_, "must add a simetric contact"
-                                    break
-                    else:
-                        assert False, f"node {node} has unidirectional contact in slot {ts}"
-
-            sorted(contacts, key=lambda x: (x.ts, x.from_, x.to))
-            net_obj = Net(net_obj.num_of_nodes, contacts)
-            head, tail = os.path.split(path_to_net)
-            net_obj.print_to_file(head, file_name=tail)
-        else:
-            net_obj = Net.get_net_from_file(path_to_net, contact_pf_required=False)
-
-        net_obj.print_dtnsim_cp_to_file(TS_DURATION_IN_SECONDS, 100, dtnsim_cp_path)
 
 def rucop():
     # exp_commands = ['base_dir="$PWD"']
@@ -98,7 +51,6 @@ def rucop():
 
                 bruf.compute_bruf(sc)
                 sc.stop()
-            print("aca")
             #IBRUF
             #Generate link to BRUF-x with x<copies bc it is required to compute IBRUF that BRUF-x be all in the same directory
             working_dir = os.path.join(PATH_TO_RESULT, f'net{net}', f'copies={copies}', f'IRUCoPn')
@@ -145,25 +97,6 @@ def rucop():
     #     f.write(' && \n'.join(exp_commands))
 
 
-def morucop():
-    for n in NET_RNG:
-        path_to_net = f"./results/net{n}/"
-        path_to_cp = path_to_net + f'0.2_{n}_seed={SEED}_reflexive.dtnsim'
-        network = net.Network.from_contact_plan(path_to_cp, ts_duration=TS_DURATION_IN_SECONDS)
-        for copies in COPIES_RNG:
-            path_to_morucop_folder = path_to_net + f'copies={copies}/MORUCOP/'
-            for pf in [i / 100 for i in range(0, 110, 10)]:
-                network.set_pf(pf)
-                print(network.contacts[0])
-                network.run_multiobjective_derivation(1, max_copies=copies)
-                network.export_rute_table(TARGETS, path=path_to_morucop_folder+ 'routing_files', pf=pf)
-            ini_file = path_to_morucop_folder + 'run.ini'
-            generate_omnet_ini_file(network.node_number, TRAFIC, f'IRUCoPn-{copies}',
-                                    ini_file, f'../../0.2_{n}_seed={SEED}_reflexive.dtnsim', frouting_path='routing_files/',
-                                    ts_duration=TS_DURATION_IN_SECONDS, repeats=NUM_OF_REPS)
-            generate_bash_script('run.ini', path_to_morucop_folder + 'run_simulation.sh', DTNSIM_PATH)
-
-
 def generate_comparation_script(routing_algorithms):
     with open(os.path.join(PATH_TO_RESULT, 'run_experiment.sh'), 'w') as f:
         f.write('#!/bin/bash \nbase_dir="$PWD"\n')
@@ -180,7 +113,8 @@ def generate_comparation_script(routing_algorithms):
                             f'&& cd "$base_dir" \n'
                             )
 
+
 # generate_random_networks()
 # rucop()
-morucop()
+# morucop()
 # generate_comparation_script(['MORUCOP', 'IRUCoPn'])
