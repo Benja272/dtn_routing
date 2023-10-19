@@ -159,13 +159,6 @@ class Network:
             contacts_by_source[c.from_n-1].append(c.id)
         return contacts_by_source
 
-    def useful_contacts_ids(self, contacts):
-        contacts_keys = []
-        for id in contacts.keys():
-            if self.rute_table[self.t+1, contacts[id].to-1, self.target, 0, SDP_INDEX] > 0:
-                contacts_keys.append(id)
-        return contacts_keys
-
     def setup(self, case):
         counter_case = Counter(case)
         case_without_next = list(filter(lambda x: type(x) != tuple, case))
@@ -199,17 +192,6 @@ class Network:
         delay = (copies - already_in_target)/copies
         return fail_state, fail_case_prob, energy, delay
 
-
-    def cases(self, next_sdp, contacts, copies):
-        if next_sdp == 0:
-            desicions = self.useful_contacts_ids(contacts)
-            start = 0
-        else:
-            desicions = [0] + self.useful_contacts_ids(contacts)
-            start = 1
-        cases = list(combinations_with_replacement(desicions, copies+1))[start:]
-        return cases
-
     def less_copies_state_costs(self, fail_state, copies): #recalcular delay
         for i in range(copies-1, -1, -1):
             j = 0
@@ -230,8 +212,9 @@ class Network:
         while contact_fail_count < len(case_without_next_or_repeats)+1:
             for failed in i_failed_cases:
                 fail_state, fail_case_prob, energy, delay = self.fail_case_info(transition_counter, failed, copies)
-                if fail_state in self.states[self.t+1][self.target][copies].keys():
-                    fail_state_costs = self.states[self.t+1][self.target][copies][fail_state].costs
+                fail_state_info = self.states[self.t+1][self.target][copies].get(fail_state)
+                if fail_state_info is not None:
+                    fail_state_costs = fail_state_info.costs
                 else:
                     fail_state_costs = self.less_copies_state_costs(fail_state, copies)
                 if fail_state_costs is not None:
@@ -268,8 +251,9 @@ class Network:
                 next_transitions += 1
         if next_transitions > 0:
             state = node * next_transitions
-            if state in self.states[self.t+1][self.target][next_transitions-1].keys():
-                contact_ids += self.states[self.t+1][self.target][next_transitions-1][state].contact_ids
+            state_info = self.states[self.t+1][self.target][next_transitions-1].get(state)
+            if state_info is not None:
+                contact_ids += state_info.contact_ids
         return contact_ids
 
     def lrucop_transitions(self, copies, contacts_by_source):
@@ -294,8 +278,8 @@ class Network:
         for state_key in self.states[self.t+1][self.target][copies].keys():
             state_counter = Counter(state_key)
             to_target_transitions = []
-            for target in state_counter.keys():
-                to_target_transitions.append(list(combinations_with_replacement(transitions_by_target[target], state_counter[target])))
+            for target, copies_in in state_counter.items():
+                to_target_transitions.append(list(combinations_with_replacement(transitions_by_target[target], copies_in)))
             prod = list(product(*to_target_transitions))
             transitions += [list(chain(*t)) for t in prod]
         return transitions
@@ -318,10 +302,11 @@ class Network:
                     if costs[SDP_INDEX] > 0:
                         contact_ids = self.transition_contact_ids(transition)
                         new_state_key = self.new_state_key(transition)
-                        if new_state_key not in self.states[self.t][self.target][copies].keys():
+                        new_state_info = self.states[self.t][self.target][copies].get(new_state_key)
+                        if new_state_info is None:
                             self.states[self.t][self.target][copies][new_state_key] = State(costs, transition, contact_ids)
-                        elif self.is_worst(self.states[self.t][self.target][copies][new_state_key].costs, costs):
-                            self.states[self.t][self.target][copies][new_state_key].set(costs, transition, contact_ids)
+                        elif self.is_worst(new_state_info.costs, costs):
+                            new_state_info.set(costs, transition, contact_ids)
 
     def by_id(self):
         self.contacts_by_id = {}
