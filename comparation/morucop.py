@@ -11,7 +11,8 @@ def morucop(net_path, dtnsim_cp_path, ts_duration, traffic, targets, copies_rng,
     for pf in PF_RNG:
         network.set_pf(pf)
         print(network.contacts[0])
-        network.run_multiobjective_derivation(1, max_copies=max(copies_rng))
+        print(targets)
+        network.run_multiobjective_derivation(targets, bundle_size=1, max_copies=max(copies_rng))
         for copies in copies_rng:
             working_dir = os.path.join(net_path, f'copies={copies}', 'MORUCOP')
             path_to_morucop_folder = net_path + f'/copies={copies}/MORUCOP/'

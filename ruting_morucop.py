@@ -317,7 +317,7 @@ class Network:
         for contact in self.contacts:
             contact.set_delay(bundle_size)
 
-    def run_multiobjective_derivation(self, bundle_size=1, max_copies = 1):
+    def run_multiobjective_derivation(self, targets, bundle_size=1, max_copies = 1):
         # self.start_time = 81000
         self.index = 0
         self.max_copies = max_copies
@@ -325,7 +325,7 @@ class Network:
         for t in range(self.end_time+1):
             for node in range(self.node_number):
                 for c in range(self.max_copies):
-                    if t == self.end_time:
+                    if t == self.end_time and node in targets:
                         state = tuple([node] * (c+1))
                         self.states[self.end_time][node][c] = {state: State([1, 0, 0])}
                     else:

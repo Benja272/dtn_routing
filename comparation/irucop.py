@@ -59,8 +59,8 @@ def irucop(net_path, cp_path, dtnsim_cp_path, ts_duration, traffic, targets, cop
         os.symlink(link_source, link_target)
 
     routing_files_path = os.path.join(working_dir, 'routing_files')
-    path_to_load_bruf_states = [os.path.join(net_path, f'copies={c}', f'BRUF-{c}') for c in range(1, copies + 1)]
     for target in targets:
+        path_to_load_bruf_states = [os.path.join(net_path, f'copies={c}', f'BRUF-{c}', f"to-{target}") for c in range(1, copies + 1)]
         ibruf = IBRUFNFunctionGenerator(net, target, copies, working_dir[:working_dir.rindex('/')],
                                         PF_RNG, path_to_load_bruf_states=path_to_load_bruf_states)
         func = ibruf.generate()
