@@ -26,7 +26,10 @@ class CP_Contact:
     @staticmethod
     def get_contact_from_str(line:str, id=-1) -> 'CP_Contact':
         c = line.split(' ')
-        return CP_Contact(int(c[4]), int(c[5]), int(c[2][1:]), int(c[3][1:]), int(c[6]), id=id)
+        pf = None
+        if(len(c) >= 8):
+            pf = float(c[7])
+        return CP_Contact(int(c[4]), int(c[5]), int(c[2][1:]), int(c[3][1:]), int(c[6]), pf, id=id)
 
     def __str__(self):
         return f"a contact {self.start_t:+08} {self.end_t:+08} {self.source} {self.target} {self.data_rate}"

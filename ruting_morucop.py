@@ -42,7 +42,7 @@ class Decision:
 
 
 class Contact:
-    def __init__(self, id: int, from_n: int, to_n: int, t_range: (int, int), pf: float, data_rate: int):
+    def __init__(self, id: int, from_n: int, to_n: int, t_range: (int, int), data_rate: int, pf: float=0):
         self.id = id
         self.from_n: int = from_n
         self.to: int = to_n
@@ -102,12 +102,13 @@ class Network:
             c.pf = pf
 
     @staticmethod
-    def from_contact_plan(cp_path: str, pf: float = 0.5, priorities = [0,1,2], ts_duration: int = 1):
+    def from_contact_plan(cp_path: str, priorities = [0,1,2], ts_duration: int = 1):
         contacts = []
         cp = ContactPlan.parse_contact_plan(cp_path)
         for c in cp.contacts:
             if c.end_t - c.start_t >= ts_duration:
-                contacts.append(Contact(c.id, c.source, c.target, (c.start_t//ts_duration, c.end_t//ts_duration), pf, c.data_rate))
+                contacts.append(Contact(c.id, c.source, c.target,
+                    (c.start_t//ts_duration, c.end_t//ts_duration), c.data_rate))
                 # nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), pf, c.data_rate))
 
         return Network(contacts, cp.start_time, cp.end_time, cp.node_number, priorities, ts_duration)

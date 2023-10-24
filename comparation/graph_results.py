@@ -34,7 +34,6 @@ def get_graph_data(nets_info):
     networks_info = {}
     for net_name in nets_info.keys():
         for algorithm, m_info in nets_info[net_name].items():
-            print(algorithm, m_info)
             if net_name not in networks_info.keys():
                 networks_info[net_name] = {}
             for copies, path_to_metrics in m_info.items():
@@ -53,7 +52,6 @@ def get_graph_data(nets_info):
 def plot_comparation_graphs(network: str, copies_number: int):
     metrics_info = get_metrics_info()
     graph_data = get_graph_data(metrics_info)
-    print(graph_data)
     if network not in graph_data.keys():
         print('No such network')
         return
@@ -62,6 +60,7 @@ def plot_comparation_graphs(network: str, copies_number: int):
         return
 
     algoritms = list(graph_data[network][copies_number].keys())
+    print("Comparation of algoritms: ", algoritms, "for network ", network, "with ", copies_number, "copies")
     for metric in graph_data[network][copies_number][algoritms[0]].keys():
         plt.clf()
         # plt.figure(figsize=(1100/DPI, 800/DPI), dpi=DPI)
@@ -84,9 +83,13 @@ def create_folder(folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-plot_comparation_graphs("rrn_start_t:0,end_t:10800", 3)
-plot_comparation_graphs("rrn_start_t:7200,end_t:10800", 3)
-plot_comparation_graphs("rrn_start_t:7200,end_t:14400", 3)
-plot_comparation_graphs("rrn_start_t:10800,end_t:14400", 3)
-plot_comparation_graphs("rrn_start_t:21600,end_t:28800", 3)
+
+plot_comparation_graphs("morucop_case", 1)
+# plot_comparation_graphs("net0", 3)
+# plot_comparation_graphs("net1", 3)
+# plot_comparation_graphs("rrn_start_t:0,end_t:10800", 3)
+# plot_comparation_graphs("rrn_start_t:7200,end_t:10800", 3)
+# plot_comparation_graphs("rrn_start_t:7200,end_t:14400", 3)
+# plot_comparation_graphs("rrn_start_t:10800,end_t:14400", 3)
+# plot_comparation_graphs("rrn_start_t:21600,end_t:28800", 3)
 

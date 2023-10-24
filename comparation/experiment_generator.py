@@ -34,7 +34,6 @@ NEW_IBRUF_2 = 'NEW_IRUCoPn-2'
 NEW_IBRUF_3 = 'NEW_IRUCoPn-3'
 NEW_IBRUF_4 = 'NEW_IRUCoPn-4'
 
-
 # traffic = Dict(source -> [target])
 # traffic_startt = Dict(source -> Dict(target -> start_time))
 
@@ -163,7 +162,7 @@ dtnsim.central.failureProbability = ${{failureProbability=0..1 step 0.1}}
 #         f.write(ini_file)
 
 
-def generate_omnetpp_script(ini_names: List[str], output_path, dtnsim_path, net_path,
+def generate_omnetpp_script(ini_names: List[str], output_path, dtnsim_path, net_path, num_of_reps,
                          parametric_compute_metrics_fpath=UTILS_PATH):
     ini_file = '#!/bin/bash\n'
     ini_file += f'DTNSIM_PATH="{dtnsim_path}";\n\n'
@@ -173,7 +172,7 @@ def generate_omnetpp_script(ini_names: List[str], output_path, dtnsim_path, net_
         ini_file += f'opp_runall -j2 $DTNSIM_PATH/dtnsim {ini_name} -n $DTNSIM_PATH -u Cmdenv -c dtnsim && \n'
         ini_file += f'current_dir="$PWD" && \n'
         ini_file += f'cd {parametric_compute_metrics_fpath} && \n'
-        ini_file += f'python -OO parametric_compute_metrics.py "{os.path.dirname(os.path.abspath(__file__))}" "{net_path}" "" {NUM_OF_REPS_OMNET} && \n'
+        ini_file += f'python -OO parametric_compute_metrics.py "{os.path.dirname(os.path.abspath(__file__))}" "{net_path}" "" {num_of_reps} && \n'
         ini_file += f'cd "$current_dir"'
 
     if ini_file.endswith("&& \n\n"):
