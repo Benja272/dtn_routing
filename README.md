@@ -30,7 +30,9 @@ configurarse como `213`
 `--priorities=123` ----> prioridades para las desiciones a tomar en el envio de los paquetes.  
 `--bundle_size=1`  ----> tamaño de los paquetes dentro de la red.  
 `--max_copies=2`   ----> cantidad maxima de copias de un mismo paquete.  
-`--contact_plan=simple_case.txt` -----> archivo txt con la informacion del plan de contacto dentro de la carpeta use_cases.
+`--ts_dutation=1`  ----> duracion de un time slot.  
+`--contact_plan=simple_case.txt` -----> archivo txt con la informacion del plan de contacto dentro de la carpeta use_cases.  
+
 
 
 

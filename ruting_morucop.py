@@ -1,7 +1,7 @@
 
 from contact_plan import ContactPlan
 from collections import Counter
-from typing import List, Any
+from typing import List, Any, Dict
 from math import ceil
 import numpy as np
 from itertools import combinations_with_replacement, combinations, product, chain
@@ -36,9 +36,6 @@ class Decision:
                 return False
         return False
 
-    @staticmethod
-    def estimate_sdp_energy(prob, future_desicions, energy=1):
-        return np.dot(prob, (future_desicions[SDP_INDEX], (energy + future_desicions[ENERGY_INDEX])))
 
 
 class Contact:
@@ -69,6 +66,20 @@ class Contact:
     def useful_contacts(contacts: List['Contact'], t: int, endtime: int) -> List['Contact']:
         return [c for c in contacts if t+c.delay <= endtime]
 
+    @staticmethod
+    def by_targets(self, contacts: List['Contact'], node_number: int) -> Dict[int, List[Any]]:
+        contacts_by_target = {node: [(node,)] for node in range(node_number)}
+        for c in contacts:
+            contacts_by_target[c.to-1].append(c.id)
+        return contacts_by_target
+
+    @staticmethod
+    def by_sources(self, contacts: List['Contact'], node_number) -> Dict[int, List[Any]]:
+        contacts_by_source = {node: [(node,)] for node in range(node_number)}
+        for c in contacts:
+            contacts_by_source[c.from_n-1].append(c.id)
+        return contacts_by_source
+
 class State:
     def __init__(self, costs: List[float], transition: List[Any]=[], contact_ids: List[int]=[]) -> None:
         self.contact_ids = contact_ids
@@ -97,10 +108,6 @@ class Network:
         assert len(priorities) == 3 and 0 in priorities and 1 in priorities and 2 in priorities
         print("Network created with %d nodes, %d slots, %d contacts and priorities %s"%(node_number, self.slot_range, len(contacts), priorities))
 
-    def set_pf(self, pf):
-        for c in self.contacts:
-            c.pf = pf
-
     @staticmethod
     def from_contact_plan(cp_path: str, priorities = [0,1,2], ts_duration: int = 1):
         contacts = []
@@ -112,6 +119,19 @@ class Network:
                 # nodes_contacts[c.target].append(Contact(c.source, (c.start_t, c.end_t), pf, c.data_rate))
 
         return Network(contacts, cp.start_time, cp.end_time, cp.node_number, priorities, ts_duration)
+
+    def set_pf(self, pf):
+        for c in self.contacts:
+            c.pf = pf
+
+    def set_contacts_by_id(self):
+        self.contacts_by_id = {}
+        for contact in self.contacts:
+            self.contacts_by_id[contact.id] = contact
+
+    def set_delays(self, bundle_size: int):
+        for contact in self.contacts:
+            contact.set_delay(bundle_size)
 
     def to_dict(self) -> dict:
         return {'nodes': [n.to_dict() for n in self.nodes]}
@@ -147,18 +167,6 @@ class Network:
                 contacts.append(self.contacts[i])
             i += 1
         return contacts
-
-    def transitions_by_target(self, contacts: List[Contact]):
-        contacts_by_target = {node: [(node,)] for node in range(self.node_number)}
-        for c in contacts:
-            contacts_by_target[c.to-1].append(c.id)
-        return contacts_by_target
-
-    def contacts_by_source(self, contacts: List[Contact]):
-        contacts_by_source = {node: [(node,)] for node in range(self.node_number)}
-        for c in contacts:
-            contacts_by_source[c.from_n-1].append(c.id)
-        return contacts_by_source
 
     def setup(self, case):
         counter_case = Counter(case)
@@ -286,19 +294,20 @@ class Network:
         return transitions
 
 
-    def set_best_desicions(self, contacts_in_slot) -> None:
-        transitions_by_target = self.transitions_by_target(contacts_in_slot)
+    def set_best_desicions(self, contacts_in_slot: List[Contact]) -> None:
+        transitions_by_target = Contact.by_targets(contacts_in_slot, self.node_number)
         if self.max_copies > 1:
-            contacts_by_source = self.contacts_by_source(contacts_in_slot)
+            contacts_by_source = Contact.by_sources(contacts_in_slot)
         for copies in range(self.max_copies): #revisar si se envio o no en la copia anterior
             for self.target in range(self.node_number):
                 if copies > 0:
+                    # Las transiciones deben corresponderse con las transiciones ya elegidas con menor cantidad de copias
                     transitions = self.lrucop_transitions(copies, contacts_by_source)
                 else:
+                    # Se consideran todas las transiciones posibles hacia los estados del tiempo t+1
                     transitions = self.rucop_transitions(copies, transitions_by_target)
 
                 for transition in transitions:
-                    # ipdb.set_trace()
                     costs = self.estimate_costs(transition, copies)
                     if costs[SDP_INDEX] > 0:
                         contact_ids = self.transition_contact_ids(transition)
@@ -309,17 +318,7 @@ class Network:
                         elif self.is_worst(new_state_info.costs, costs):
                             new_state_info.set(costs, transition, contact_ids)
 
-    def by_id(self):
-        self.contacts_by_id = {}
-        for contact in self.contacts:
-            self.contacts_by_id[contact.id] = contact
-
-    def set_delays(self, bundle_size):
-        for contact in self.contacts:
-            contact.set_delay(bundle_size)
-
-    def run_multiobjective_derivation(self, targets, bundle_size=1, max_copies = 1):
-        # self.start_time = 81000
+    def run_multiobjective_derivation(self, targets: List[int], bundle_size:int =1, max_copies:int = 1):
         self.index = 0
         self.max_copies = max_copies
         self.states = np.empty((self.slot_range, self.node_number, self.max_copies), dtype=object)
@@ -327,11 +326,11 @@ class Network:
             for node in range(self.node_number):
                 for c in range(self.max_copies):
                     if t == self.end_time and node in targets:
-                        state = tuple([node] * (c+1))
+                        state = tuple([node] * (c+1)) # (node, node, node, ...)
                         self.states[self.end_time][node][c] = {state: State([1, 0, 0])}
                     else:
                         self.states[t][node][c] = {}
-        self.by_id()
+        self.set_contacts_by_id()
         self.set_delays(bundle_size)
         for self.t in range(self.end_time-1, self.start_time -1, -1):
             contacts_in_slot = self.contacts_in_slot(self.t)
@@ -396,7 +395,3 @@ def combinationSum(N):
 def create_folder(folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
-
-# init_value = np.empty((), dtype=Decision_np)
-#         init_value[()]= (0, 0, slot_range, slot_range)
-#         self.rute_table = np.full((slot_range, self.node_number, self.node_number, self.max_copies), init_value, dtype=Decision_np)
