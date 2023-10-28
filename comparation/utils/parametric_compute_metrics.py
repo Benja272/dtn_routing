@@ -26,7 +26,7 @@ The varriable parts in string are marked with %%. They are:
 
 OUTPUT:
 
-"%s/METRIC=%s-FAULTAWARE=%s-MAX_DELETED_CONTACTS=%d-.txt"%(OUTPUT_PATH,metric[0],aware,MAX_DELETED_CONTACTS)
+"%s/METRIC=%s-FAULTAWARE=%s-MAX_DELETED_CONTACTS=%d-.txt"%(OUTPUT_PATH,metric,aware,MAX_DELETED_CONTACTS)
 
 '''
 
@@ -36,139 +36,84 @@ import sqlite3
 import matplotlib.pyplot as plt
 from functools import reduce
 import sys
+sys.path.append('../')
 import os
+import json
 import statistics
 from brufn.utils import getListFromFile
+from settings import *
+metrics_name = list(map(lambda m: m[0], METRICS))
 
-#[(metric, x-axis label)]
-METRICS = [("appBundleReceived:count","Delivered Bundles"),("deliveryRatio","Delivery Ratio"), ("dtnBundleSentToCom:count","Transmitted bundles"), ("appBundleReceivedDelay:mean","Mean Delay per Bundle"), ("appBundleReceivedHops:mean","Mean Hops per Bundle"), ("sdrBundleStored:timeavg", "Mean Bundles in SDR"), ('EnergyEfficiency', 'Energy Efficiency')]
-def main(exp_path, net, routing_algotithm, num_of_reps):
+def main(exp_path, net, routing_algotithm, num_of_reps, pf_rng):
         ra_dir = os.path.join(exp_path, net, routing_algotithm)
-        for metric in METRICS:
-                graph_output_dir = os.path.join(ra_dir, 'metrics')
-                os.makedirs(graph_output_dir, exist_ok=True)
-                cmp_graph_data = []
-                for aware in [str(routing_algotithm == 'cgr-fa').lower()]:
-                    # if not os.path.isdir(os.path.join(ra_dir, 'results')):
-                    #     print(f"Not folder {os.path.join(ra_dir, 'results')}")
-                    #     text_file = open(f"{graph_output_dir}/METRIC={metric[0]}.txt", "w")
-                    #     text_file.write(str([(pf,0) for pf in [i/100 for i in range(0,110,10)]]))
-                    #     text_file.close()
-                    #     continue
-            
-                    path = os.path.join(ra_dir, 'results', "dtnsim-faultsAware=%s"%(aware))
-                    print(path)
-                    if(metric[0] == "deliveryRatio"):
-                        f_avg_by_rep = receivedPacketAv2(path, num_of_reps)
-                    elif( (metric[0] == "appBundleReceivedDelay:mean") or (metric[0] == "appBundleReceivedHops:mean") or (metric[0] == "sdrBundleStored:timeavg")):
-                        f_avg_by_rep = receivedPacketAv3(path, num_of_reps, metric[0])
-                    elif metric[0]=='EnergyEfficiency':
-                        f_delivered_bundles =  getListFromFile(f"{graph_output_dir}/METRIC=appBundleReceived:count.txt")
-                        f_number_of_transmisions = getListFromFile(f"{graph_output_dir}/METRIC=dtnBundleSentToCom:count.txt")
-                        f_avg_by_rep = [(f_delivered_bundles[i][0], f_delivered_bundles[i][1] / f_number_of_transmisions[i][1] if f_number_of_transmisions[i][1] != 0 else 0) for i in range(len(f_delivered_bundles))]
-                    else:
-                        #compute average function for all repetitions of a contact plan (one contac plan average- CONTACT PLAN AVERAGE)
-                        f_avg_by_rep = receivedPacketAv(path, num_of_reps, metric[0])
+        pf_rng_str = pf_rng_to_str(pf_rng)
+        graph_output_dir = os.path.join(ra_dir, 'metrics')
+        os.makedirs(graph_output_dir, exist_ok=True)
+        path = os.path.join(ra_dir, 'results', "dtnsim-faultsAware=false")
+        metric_graph_data = {metric: [] for metric in metrics_name}
+        for pf_str in pf_rng_str:
+            metrics_sum = {metric: 0 for metric in metrics_name}
+            path_with_fp = path + f",failureProbability={pf_str}"
+            for i in range(num_of_reps):
+                path_with_rep = path_with_fp + f"-#{i}.sca"
+                print(path_with_rep)
+                cursor = fileCursor(path_with_rep)
+                for metric in metrics_name:
+                    if(metric == "deliveryRatio"):
+                        metrics_sum[metric] += deliveryRatio(cursor)
+                    elif( (metric == "appBundleReceivedDelay:mean") or (metric == "appBundleReceivedHops:mean") or (metric == "sdrBundleStored:timeavg")):
+                        metrics_sum[metric] += executeOperation(cursor, "AVG", metric)
+                    elif metric=='EnergyEfficiency':
+                        delivered_bundles = executeOperation(cursor, "SUM", "appBundleReceived:count")
+                        number_of_transmisions = executeOperation(cursor, "SUM", "dtnBundleSentToCom:count")
+                        energyEfficiency = delivered_bundles / number_of_transmisions if number_of_transmisions != 0 else 0
+                        metrics_sum[metric] += energyEfficiency
+                        metrics_sum["appBundleReceived:count"] += delivered_bundles
+                        metrics_sum["dtnBundleSentToCom:count"] += number_of_transmisions
+                        # f_delivered_bundles =  getListFromFile(f"{graph_output_dir}/METRIC=appBundleReceived:count.txt")
+                        # f_number_of_transmisions = getListFromFile(f"{graph_output_dir}/METRIC=dtnBundleSentToCom:count.txt")
+                        # f_avg_by_rep = [(f_delivered_bundles[i][0], f_delivered_bundles[i][1] / f_number_of_transmisions[i][1] if f_number_of_transmisions[i][1] != 0 else 0) for i in range(len(f_delivered_bundles))]
 
                     #compute average function for all contact plans (all contact plans average - DENSITY AVERAGE)
-                    graph_data = f_avg_by_rep
-                    cmp_graph_data.append(graph_data)
+            for metric in metrics_name:
+                graph_data = (pf_str, metrics_sum[metric] / float(num_of_reps))
+                metric_graph_data[metric].append(graph_data)
 
-                    # save function
-                    text_file = open(f"{graph_output_dir}/METRIC={metric[0]}.txt", "w")
-                    text_file.write(str(graph_data))
-                    text_file.close()
+        for metric in metrics_name:
+            file = f"{graph_output_dir}/METRIC={metric}.txt"
+            print(file)
+            text_file = open(file, "w")
+            text_file.write(str(metric_graph_data[metric]))
+            text_file.close()
 
-#Tengo que calcular para un contact plan para todas las repeticiones
-def receivedPacketAv(input_path, amount_of_repetitions, metric):
-    graph_data = []
-    for d in ["%1.1f"%(x/10.) for x in range(11)]:
-      if d=='0.0': 
-        d='0'
-      elif d=='1.0': 
-        d='1'
-      received_packet = 0
-      for i in range(amount_of_repetitions):
-          # Connect to database
-          print("%s,failureProbability=%s-#%d.sca" % (input_path, d, i))
-          conn = sqlite3.connect("%s,failureProbability=%s-#%d.sca" % (input_path, d, i))
-          conn.row_factory = sqlite3.Row
-          cur = conn.cursor()
 
-          # execute sql query to get bundles received by all nodes
-          cur.execute("SELECT SUM(scalarValue) AS result FROM scalar WHERE scalarName='%s'"%(metric))
-          rows0 = cur.fetchall()
-          received_packet += 0 if (rows0[0]["result"] == None) else rows0[0]["result"]
+def pf_rng_to_str(pf_rng):
+    res = []
+    for pf in pf_rng:
+        if pf == 0:
+            res.append('0')
+        elif pf == 1:
+            res.append('1')
+        else:
+            res.append(str(pf))
+    return res
 
-      cur.execute("SELECT MAX(scalarValue) AS result FROM scalar WHERE scalarName='contactsNumber:sum'")
-      rows0 = cur.fetchall()
-      contact_number = rows0[0]["result"]
+def fileCursor(path):
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    return cur
 
-      graph_data.append((float(d),received_packet / float(amount_of_repetitions)))
+def executeOperation(cur, operation, scalarName):
+    cur.execute("SELECT %s(scalarValue) AS result FROM scalar WHERE scalarName='%s'"%(operation, scalarName))
+    rows = cur.fetchall()
+    return 0 if (rows[0]["result"] == None) else float(rows[0]["result"])
 
-    return  graph_data
+def deliveryRatio(cursor):
+    delivered_bundles = executeOperation(cursor, "SUM", "appBundleReceived:count")
+    sent_bundles = executeOperation(cursor, "SUM", "appBundleSent:count")
+    return delivered_bundles / sent_bundles if sent_bundles != 0 else 0
 
-#Tengo que calcular para un contact plan para todas las repeticiones
-def receivedPacketAv2(input_path, amount_of_repetitions):
-    graph_data = []
-    for d in ["%1.1f"%(x/10.) for x in range(11)]:
-      if d=='0.0': 
-        d='0'
-      elif d=='1.0': 
-        d='1'  
-      received_packet = 0
-      for i in range(amount_of_repetitions):
-          # Connect to database
-          print("%s,failureProbability=%s-#%d.sca" % (input_path, d, i))
-          conn = sqlite3.connect("%s,failureProbability=%s-#%d.sca" % (input_path, d, i))
-          conn.row_factory = sqlite3.Row
-          cur = conn.cursor()
-
-          # execute sql query to get bundles received by all nodes
-          cur.execute("SELECT SUM(scalarValue) AS result FROM scalar WHERE scalarName='%s'"%("appBundleReceived:count"))
-          rows0 = cur.fetchall()
-          rx_packet = 0 if (rows0[0]["result"] == None) else rows0[0]["result"]
-
-          cur.execute("SELECT SUM(scalarValue) AS result FROM scalar WHERE scalarName='%s'"%("appBundleSent:count"))
-          rows1 = cur.fetchall()
-          tx_packet = 0 if (rows1[0]["result"] == None) else rows1[0]["result"]
-          received_packet += float(rx_packet) / float(tx_packet) if float(tx_packet)  != 0 else 0
-
-      cur.execute("SELECT MAX(scalarValue) AS result FROM scalar WHERE scalarName='contactsNumber:sum'")
-      rows0 = cur.fetchall()
-      contact_number = rows0[0]["result"]
-
-      graph_data.append((float(d),received_packet / float(amount_of_repetitions)))
-
-    return  graph_data
-
-def receivedPacketAv3(input_path, amount_of_repetitions,metric):
-    graph_data = []
-    for d in ["%1.1f"%(x/10.) for x in range(11)]:
-      if d=='0.0': 
-        d='0'
-      elif d=='1.0': 
-        d='1'      
-      received_packet = 0
-      for i in range(amount_of_repetitions):
-          # Connect to database
-          print("%s,failureProbability=%s-#%d.sca" % (input_path, d, i))
-          conn = sqlite3.connect("%s,failureProbability=%s-#%d.sca" % (input_path, d, i))
-          conn.row_factory = sqlite3.Row
-          cur = conn.cursor()
-
-          # execute sql query to get bundles received by all nodes
-          cur.execute("SELECT AVG(scalarValue) AS result FROM scalar WHERE scalarName='%s'"%(metric))
-          rows0 = cur.fetchall()
-          received_packet += 0 if (rows0[0]["result"] == None) else rows0[0]["result"]
-
-      cur.execute("SELECT MAX(scalarValue) AS result FROM scalar WHERE scalarName='contactsNumber:sum'")
-      rows0 = cur.fetchall()
-      contact_number = rows0[0]["result"]
-
-      graph_data.append((float(d),received_packet / float(amount_of_repetitions)))
-
-    return  graph_data
 
 '''
 Given a list of list of pairs: [[(x0,y0),...] , [(xn,yn),....]]
@@ -184,16 +129,18 @@ def promList(llist):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 5:
+    if len(sys.argv) == 6:
         '''
             sys.argv[1] -> Experiment path
             sys.argv[2] -> net
             sys.argv[3] -> routing_algotithm
             sys.argv[4] -> num_of_reps
-            
+            sys.argv[5] -> pf_rng
+
         '''
 
-        main(sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]))
+        main(sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), json.loads(sys.argv[5]))
     else:
+        print("Error: Invalid number of arguments")
         exit(-1)
 
