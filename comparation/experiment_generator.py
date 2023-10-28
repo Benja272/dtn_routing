@@ -1,4 +1,7 @@
 from typing import List, Dict
+import sys
+sys.path.append("./utils")
+from parametric_compute_metrics import pf_rng_to_str
 import os
 from settings import *
 
@@ -61,8 +64,8 @@ def generate_omnet_traffic(traffic:Dict[int, List[int]], traffic_ttls:Dict[int, 
 
     return traffic_setting
 
-
-def generate_omnet_ini_file(nodes_number: int, traffic: Dict[int, List[int]], routing_algorithm: str, output_file: str,
+#import pf_rng_to_str
+def generate_omnet_ini_file(nodes_number: int, traffic: Dict[int, List[int]], routing_algorithm: str, output_file: str, pf_rng: List[float],
                             cp_path: str, frouting_path: str = None, repeats=100, traffic_ttls: Dict[int, Dict[int, int]]={}, traffic_startts: Dict[int, Dict[int, int]]={}, ts_duration:int=-1, ts_start_times:List[int]=None):
     '''
 
@@ -122,7 +125,8 @@ def generate_omnet_ini_file(nodes_number: int, traffic: Dict[int, List[int]], ro
 
     routing_algorithm_ini_setting += 'dtnsim.node[*].app.returnToSender = false'
 
-    ini_file = f""" 
+    fp_str = ','.join(pf_rng_to_str(pf_rng))
+    ini_file = f"""
 [General]
 outputvectormanager-class="omnetpp::envir::SqliteOutputVectorManager"
 outputscalarmanager-class="omnetpp::envir::SqliteOutputScalarManager"
@@ -131,8 +135,8 @@ outputscalarmanager-class="omnetpp::envir::SqliteOutputScalarManager"
 network = dtnsim.dtnsim
 dtnsim.node[*].**.result-recording-modes = -vector
 
-repeat = {repeats}				
-dtnsim.nodesNumber = {nodes_number}	
+repeat = {repeats}
+dtnsim.nodesNumber = {nodes_number}
 
 num-rngs = 1
 seed-0-mt = ${{repetition}}
@@ -143,7 +147,7 @@ dtnsim.central.contactsFile = "{cp_path}"
 
 dtnsim.central.faultsAware = ${{faultsAware={str(fault_aware).lower()}}}
 dtnsim.central.useCentrality = false
-dtnsim.central.failureProbability = ${{failureProbability=0..1 step 0.1}}
+dtnsim.central.failureProbability = ${{failureProbability={fp_str}}}
 
 {routing_algorithm_ini_setting}
 
@@ -162,7 +166,7 @@ dtnsim.central.failureProbability = ${{failureProbability=0..1 step 0.1}}
 #         f.write(ini_file)
 
 
-def generate_omnetpp_script(ini_names: List[str], output_path, dtnsim_path, net_path, num_of_reps,
+def generate_omnetpp_script(ini_names: List[str], output_path, dtnsim_path, net_path, num_of_reps, pf_rng,
                          parametric_compute_metrics_fpath=UTILS_PATH):
     ini_file = '#!/bin/bash\n'
     ini_file += f'DTNSIM_PATH="{dtnsim_path}";\n\n'
@@ -172,7 +176,7 @@ def generate_omnetpp_script(ini_names: List[str], output_path, dtnsim_path, net_
         ini_file += f'opp_runall -j2 $DTNSIM_PATH/dtnsim {ini_name} -n $DTNSIM_PATH -u Cmdenv -c dtnsim && \n'
         ini_file += f'current_dir="$PWD" && \n'
         ini_file += f'cd {parametric_compute_metrics_fpath} && \n'
-        ini_file += f'python -OO parametric_compute_metrics.py "{os.path.dirname(os.path.abspath(__file__))}" "{net_path}" "" {num_of_reps} && \n'
+        ini_file += f'python -OO parametric_compute_metrics.py "{os.path.dirname(os.path.abspath(__file__))}" "{net_path}" "" {num_of_reps} "{pf_rng}" && \n'
         ini_file += f'cd "$current_dir"'
 
     if ini_file.endswith("&& \n\n"):

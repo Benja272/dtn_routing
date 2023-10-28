@@ -23,7 +23,7 @@ SOURCES = range(8) # Nodes that will send packages to every target (except thems
 TARGETS = range(8) # Nodes that will recieve packages from every sources
 NET_RNG = [0,1] #range(10)
 RANDOM_TS_DURATION_IN_SECONDS = 10 # Duration of a single time stamp
-RANDOM_NUM_OF_REPS = 1000 # Number of simulations that will be runned in OMNET++ for BRUF/IBRUF simulation
+RANDOM_NUM_OF_REPS = 10 # Number of simulations that will be runned in OMNET++ for BRUF/IBRUF simulation
 RANDOM_TRAFIC = dict((s+1, [t+1 for t in TARGETS if t != s]) for s in SOURCES)
 ###############
 
@@ -33,4 +33,7 @@ PATH_TO_RESULT = 'results'
 random.seed(SEED)
 COPIES_RNG = [1, 2, 3]
 PF_RNG = [x / 100. for x in range(0, 110, 10)]
+#[(metric, x-axis label)]
+METRICS = [("appBundleReceived:count","Delivered Bundles"),("deliveryRatio","Delivery Ratio"), ("dtnBundleSentToCom:count","Transmitted bundles"), ("appBundleReceivedDelay:mean","Mean Delay per Bundle"), ("appBundleReceivedHops:mean","Mean Hops per Bundle"), ("sdrBundleStored:timeavg", "Mean Bundles in SDR"), ('EnergyEfficiency', 'Energy Efficiency')]
+
 

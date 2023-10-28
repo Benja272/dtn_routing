@@ -83,7 +83,7 @@ def random_comparation():
         for copies in COPIES_RNG:
             for target in TARGETS:
                 irucop_time += exec_with_time(
-                    rucop,net_path, copies, SOURCES, [target], PF_RNG, cp_path)
+                    rucop,net_path, copies, SOURCES, [target], PF_RNG, None, None, cp_path)
         # IRUCoP
         f_output_name = f'run_net{net},IRUCOP.sh'
         sims_commands.append("bash " + f_output_name)
@@ -123,8 +123,8 @@ def morucop_case():
     with open(os.path.join(PATH_TO_RESULT,"run_sims.sh"), 'w') as f:
         f.write("&&\n".join(sims_commands))
 
-morucop_case()
-# random_comparation()
+# morucop_case()
+random_comparation()
 # RRN_comparation()
 
 

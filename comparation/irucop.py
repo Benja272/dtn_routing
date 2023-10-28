@@ -88,12 +88,12 @@ def irucop(net_path, dtnsim_cp_path, ts_duration, traffic, targets,
                     print(f"[Exception] {e}")
 
     ini_path = os.path.join(working_dir, 'run.ini')
-    generate_omnet_ini_file(net.num_of_nodes, traffic, f'IRUCoPn-{copies}', ini_path,
+    generate_omnet_ini_file(net.num_of_nodes, traffic, f'IRUCoPn-{copies}', ini_path, pf_rng,
         os.path.relpath(dtnsim_cp_path, working_dir), frouting_path='routing_files/',
         ts_duration=ts_duration, repeats=num_of_reps)
 
     generate_omnetpp_script(['run.ini'], os.path.join(working_dir, 'run_simulation.sh'), DTNSIM_PATH,
-        os.path.join(net_path, f'copies={copies}', 'IRUCoPn'), num_of_reps)
+        os.path.join(net_path, f'copies={copies}', 'IRUCoPn'), num_of_reps, pf_rng)
     generate_exec_script(working_dir, net_path, copies, 'IRUCoPn', f_output_name)
 
 
