@@ -67,14 +67,14 @@ class Contact:
         return [c for c in contacts if t+c.delay <= endtime]
 
     @staticmethod
-    def by_targets(self, contacts: List['Contact'], node_number: int) -> Dict[int, List[Any]]:
+    def by_targets(contacts: List['Contact'], node_number: int) -> Dict[int, List[Any]]:
         contacts_by_target = {node: [(node,)] for node in range(node_number)}
         for c in contacts:
             contacts_by_target[c.to-1].append(c.id)
         return contacts_by_target
 
     @staticmethod
-    def by_sources(self, contacts: List['Contact'], node_number) -> Dict[int, List[Any]]:
+    def by_sources(contacts: List['Contact'], node_number) -> Dict[int, List[Any]]:
         contacts_by_source = {node: [(node,)] for node in range(node_number)}
         for c in contacts:
             contacts_by_source[c.from_n-1].append(c.id)
@@ -297,8 +297,8 @@ class Network:
     def set_best_desicions(self, contacts_in_slot: List[Contact]) -> None:
         transitions_by_target = Contact.by_targets(contacts_in_slot, self.node_number)
         if self.max_copies > 1:
-            contacts_by_source = Contact.by_sources(contacts_in_slot)
-        for copies in range(self.max_copies): #revisar si se envio o no en la copia anterior
+            contacts_by_source = Contact.by_sources(contacts_in_slot, self.node_number)
+        for copies in range(self.max_copies):
             for self.target in range(self.node_number):
                 if copies > 0:
                     # Las transiciones deben corresponderse con las transiciones ya elegidas con menor cantidad de copias
