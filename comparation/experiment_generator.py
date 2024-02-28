@@ -133,7 +133,7 @@ outputscalarmanager-class="omnetpp::envir::SqliteOutputScalarManager"
 
 [Config dtnsim]
 network = dtnsim.dtnsim
-dtnsim.node[*].**.result-recording-modes = -vector
+dtnsim.node[*].**.result-recording-modes = +vector
 
 repeat = {repeats}
 dtnsim.nodesNumber = {nodes_number}

@@ -15,29 +15,29 @@ def get_net_path(network_name):
 
 def RRN_comparation():
     params = [(1,7200,10800),  #1h
-                (1,10800,14400),  #1h
-                (1, 7200, 14400),  # 2h
-                (7,21600,28800),  #2h
-                (7, 0, 10800),  # 3h
-                (15,21600,32400),  #3h
+                # (1,10800,14400),  #1h
+                # (1, 7200, 14400),  # 2h
+                # (7,21600,28800),  #2h
+                # (7, 0, 10800),  # 3h
+                # (15,21600,32400),  #3h
                 ]
     irucop_time = 0.
     morucop_time = 0.
-    for source, starting_time, end_time in params:
-        duration_in_hours = (end_time - starting_time) // 3600
-        starting_hour = starting_time // 3600
-        startt = starting_hour * 3600
-        endt = (starting_hour + duration_in_hours) * 3600
-        net_path = get_net_path(f'rrn_start_t:{startt},end_t:{endt}')
-        cp_path = os.path.join(net_path, f'cp_start_t:{startt},end_t:{endt}-seed={SEED}.py')
-        sources = [F_RENAME_DTNSIM[gt] - 1 for gt in GROUND_TARGETS_EIDS]
-        target = F_RENAME_DTNSIM[GS_EID] - 1
-        probabilities_rng = [x / 100. for x in range(0, 110, 10)]
+    # for source, starting_time, end_time in params:
+    #     duration_in_hours = (end_time - starting_time) // 3600
+    #     starting_hour = starting_time // 3600
+    #     startt = starting_hour * 3600
+    #     endt = (starting_hour + duration_in_hours) * 3600
+    #     net_path = get_net_path(f'rrn_start_t:{startt},end_t:{endt}')
+    #     cp_path = os.path.join(net_path, f'cp_start_t:{startt},end_t:{endt}-seed={SEED}.py')
+    #     sources = [F_RENAME_DTNSIM[gt] - 1 for gt in GROUND_TARGETS_EIDS]
+    #     target = F_RENAME_DTNSIM[GS_EID] - 1
+    #     probabilities_rng = [x / 100. for x in range(0, 110, 10)]
 
-        # RUCoP
-        for copies in COPIES_RNG:
-            irucop_time += exec_with_time(
-                rucop,net_path, copies, sources, [target], probabilities_rng, cp_path=cp_path)
+    #     # RUCoP
+    #     for copies in COPIES_RNG:
+    #         irucop_time += exec_with_time(
+    #             rucop,net_path, copies, sources, [target], probabilities_rng, cp_path=cp_path)
     ####################################################################################
     sims_commands = []
     for source, starting_time, end_time in params:
@@ -115,7 +115,7 @@ def simple_case(case_name, copies_rng):
         rucop(net_path, copies, [0], targets, [0.5], ts_duration=1, dtnsim_cp_path=dtnsim_cp_path)
         irucop(net_path, dtnsim_cp_path, 1, traffic, targets, copies,
             f"run_{case_name},IRUCOP.sh", 1, [0.5]) #cp_path=os.path.join(net_path, 'net.py')
-    sims_commands.append("bash run_{case_name},IRUCOP.sh")
+    sims_commands.append(f"bash run_{case_name},IRUCOP.sh")
 
     morucop(net_path, dtnsim_cp_path, 1, traffic, targets, copies_rng, [0.5],
         f"run_{case_name},MORUCOP.sh", 1)
@@ -125,8 +125,8 @@ def simple_case(case_name, copies_rng):
         f.write("&&\n".join(sims_commands))
 
 # simple_case('morucop_case')
-simple_case('badD1CopieCase', [1,2])
-# random_comparation()
+#simple_case('badD1CopieCase', [1,2])
+random_comparation()
 # RRN_comparation()
 
 

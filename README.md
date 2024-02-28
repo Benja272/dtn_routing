@@ -37,3 +37,5 @@ configurarse como `213`
 
 
 installar libsqlite3-dev antes de python3.6
+
+problemas con la compilacion manual desde la terminal para dtnsim, usar omnet para modificaciones.
