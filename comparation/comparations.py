@@ -2,6 +2,7 @@ import os
 from settings import *
 from irucop import rucop, irucop
 from morucop import morucop
+from typing import Dict, List
 import time
 import ipdb
 
@@ -37,7 +38,7 @@ def RRN_comparation():
     #     # RUCoP
     #     for copies in COPIES_RNG:
     #         irucop_time += exec_with_time(
-    #             rucop,net_path, copies, sources, [target], probabilities_rng, cp_path=cp_path)
+    #             rucop,net_path, copies, sources, [target], probabilities_rng, None, None, cp_path)
     ####################################################################################
     sims_commands = []
     for source, starting_time, end_time in params:
@@ -54,10 +55,10 @@ def RRN_comparation():
         f_output_name = f'run_{startt},{endt},IRUCOP.sh'
         sims_commands.append("bash " + f_output_name)
         # IRUCoP
-        for copies in COPIES_RNG:
-            irucop_time += exec_with_time(
-                irucop,net_path, dtnsim_cp_path, 60, traffic, [target],
-                    copies, f_output_name, RRN_NUM_OF_REPS_OMNET, PF_RNG, cp_path)
+        # for copies in COPIES_RNG:
+        #     irucop_time += exec_with_time(
+        #         irucop,net_path, dtnsim_cp_path, 60, traffic, [target],
+        #             copies, f_output_name, RRN_NUM_OF_REPS_OMNET, PF_RNG, cp_path)
         # MORUCOP
         f_output_name = f'run_{startt},{endt},MORUCOP.sh'
         morucop_time += exec_with_time(
@@ -66,8 +67,7 @@ def RRN_comparation():
         sims_commands.append("bash " + f_output_name)
 
 
-    with open(os.path.join(PATH_TO_RESULT,"run_sims.sh"), 'w') as f:
-        f.write("&&\n".join(sims_commands))
+    append_commands(sims_commands)
     print("IRUCOP Time: ", irucop_time)
     print("MORUCOP Time: ", morucop_time)
 
@@ -78,8 +78,8 @@ def random_comparation():
     for net in NET_RNG:
         net_path = get_net_path(f'net{net}')
         cp_path = os.path.join(net_path, f'net-{net}-seed={SEED}.py')
-        # RUCoP
         dtnsim_cp_path = os.path.join(net_path, f'0.2_{net}_seed={SEED}_reflexive.dtnsim')
+        # RUCoP
         for copies in COPIES_RNG:
             for target in TARGETS:
                 irucop_time += exec_with_time(
@@ -87,11 +87,10 @@ def random_comparation():
         # IRUCoP
         f_output_name = f'run_net{net},IRUCOP.sh'
         sims_commands.append("bash " + f_output_name)
-        for copies in COPIES_RNG:
-            irucop_time += exec_with_time(
-                irucop, net_path, dtnsim_cp_path, RANDOM_TS_DURATION_IN_SECONDS,
-                    RANDOM_TRAFIC, TARGETS, copies, f_output_name, RANDOM_NUM_OF_REPS,
-                    PF_RNG, cp_path)
+        irucop_time += exec_with_time(
+            irucop, net_path, dtnsim_cp_path, RANDOM_TS_DURATION_IN_SECONDS,
+                RANDOM_TRAFIC, TARGETS, COPIES_RNG, f_output_name, RANDOM_NUM_OF_REPS,
+                PF_RNG, cp_path)
 
         # MORUCOP
         f_output_name = f'run_net{net},MORUCOP.sh'
@@ -100,32 +99,40 @@ def random_comparation():
             morucop, net_path, dtnsim_cp_path, RANDOM_TS_DURATION_IN_SECONDS,
                 RANDOM_TRAFIC, TARGETS, COPIES_RNG, PF_RNG, f_output_name, RANDOM_NUM_OF_REPS)
 
-    with open(os.path.join(PATH_TO_RESULT,"run_sims.sh"), 'w') as f:
-        f.write("&&\n".join(sims_commands))
+    append_commands(sims_commands)
     print("IRUCOP Time: ", irucop_time)
     print("MORUCOP Time: ", morucop_time)
 
-def simple_case(case_name, copies_rng):
+
+
+def simple_case(case_name, sources=[0], traffic={1:[5]}, targets=[4], ts_duration=1, num_of_reps=1, copies_rng=[1,2], prob_rng=[0.5]):
     sims_commands = []
     net_path = get_net_path(case_name)
     dtnsim_cp_path = f"../use_cases/{case_name}.txt"
-    traffic = {1: [5]}
-    targets = [4]
     for copies in copies_rng:
-        rucop(net_path, copies, [0], targets, [0.5], ts_duration=1, dtnsim_cp_path=dtnsim_cp_path)
-        irucop(net_path, dtnsim_cp_path, 1, traffic, targets, copies,
-            f"run_{case_name},IRUCOP.sh", 1, [0.5]) #cp_path=os.path.join(net_path, 'net.py')
+        rucop(net_path, copies, sources, targets, prob_rng, ts_duration=1, dtnsim_cp_path=dtnsim_cp_path)
+        irucop(net_path, dtnsim_cp_path, ts_duration, traffic, targets, copies,
+            f"run_{case_name},IRUCOP.sh", num_of_reps, prob_rng) #cp_path=os.path.join(net_path, 'net.py')
     sims_commands.append(f"bash run_{case_name},IRUCOP.sh")
 
-    morucop(net_path, dtnsim_cp_path, 1, traffic, targets, copies_rng, [0.5],
-        f"run_{case_name},MORUCOP.sh", 1)
+    morucop(net_path, dtnsim_cp_path, ts_duration, traffic, targets, copies_rng, prob_rng,
+        f"run_{case_name},MORUCOP.sh", num_of_reps)
     sims_commands.append(f"bash run_{case_name},MORUCOP.sh")
 
-    with open(os.path.join(PATH_TO_RESULT,"run_sims.sh"), 'w') as f:
+    append_commands(sims_commands)
+
+def append_commands(sims_commands):
+    with open(os.path.join(PATH_TO_RESULT,"run_sims.sh"), 'r+') as f:
+        if f.read() != "":
+            f.write("&&\n")
         f.write("&&\n".join(sims_commands))
 
+with open(os.path.join(PATH_TO_RESULT,"run_sims.sh"), 'w') as f:
+    f.write("")
+
+
 # simple_case('morucop_case')
-#simple_case('badD1CopieCase', [1,2])
+# simple_case('badD1CopieCase', [1,2])
 random_comparation()
 # RRN_comparation()
 

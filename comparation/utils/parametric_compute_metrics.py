@@ -40,7 +40,7 @@ sys.path.append('../')
 import os
 import json
 import statistics
-from brufn.utils import getListFromFile
+# from brufn.utils import getListFromFile
 from settings import *
 metrics_name = list(map(lambda m: m[0], METRICS))
 
@@ -58,10 +58,13 @@ def main(exp_path, net, routing_algotithm, num_of_reps, pf_rng):
                 path_with_rep = path_with_fp + f"-#{i}.sca"
                 print(path_with_rep)
                 cursor = fileCursor(path_with_rep)
+                getAll("dtnBundleReceivedFromComIds:vector")
                 for metric in metrics_name:
                     if(metric == "deliveryRatio"):
+                        getAll(cursor, "appBundleReceived:count")
                         metrics_sum[metric] += deliveryRatio(cursor)
                     elif( (metric == "appBundleReceivedDelay:mean") or (metric == "appBundleReceivedHops:mean") or (metric == "sdrBundleStored:timeavg")):
+                        getAll(cursor, metric)
                         metrics_sum[metric] += executeOperation(cursor, "AVG", metric)
                     elif metric=='EnergyEfficiency':
                         delivered_bundles = executeOperation(cursor, "SUM", "appBundleReceived:count")
@@ -103,6 +106,13 @@ def fileCursor(path):
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     return cur
+
+def getAll(cur, scalarName):
+    cur.execute("SELECT * AS result FROM scalar WHERE scalarName='%s'"%(scalarName))
+    rows = cur.fetchall()
+    print(rows)
+    return rows
+
 
 def executeOperation(cur, operation, scalarName):
     cur.execute("SELECT %s(scalarValue) AS result FROM scalar WHERE scalarName='%s'"%(operation, scalarName))

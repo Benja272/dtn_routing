@@ -23,7 +23,7 @@ def morucop(net_path, dtnsim_cp_path, ts_duration, traffic, targets, copies_rng,
                 ts_duration=ts_duration, repeats=num_of_reps)
             generate_omnetpp_script(['run.ini'], path_to_morucop_folder + 'run_simulation.sh', DTNSIM_PATH,
                 os.path.join(net_path, f'copies={copies}', 'MORUCOP'), num_of_reps, pf_rng)
-            generate_exec_script(working_dir, net_path, copies, 'MORUCOP', f_output_name)
+    generate_exec_script(net_path, copies_rng, 'MORUCOP', f_output_name)
 
     # for n in NET_RNG:
     # path_to_net = f"./results/net{n}/"

@@ -58,43 +58,44 @@ def rucop(net_path, copies, sources, targets, probabilities_rng,
             pass
 
 def irucop(net_path, dtnsim_cp_path, ts_duration, traffic, targets,
-           copies, f_output_name, num_of_reps, pf_rng, cp_path=None):
+           copies_rng, f_output_name, num_of_reps, pf_rng, cp_path=None):
     net = get_net(cp_path, dtnsim_cp_path, ts_duration)
     # IBRUF
     # Generate link to BRUF-x with x<copies bc it is required to compute IBRUF that BRUF-x be all in the same directory
-    working_dir = os.path.join(net_path, f'copies={copies}', 'IRUCoPn')
-    os.makedirs(working_dir, exist_ok=True)
-    for c in range(1, copies):
-        link_source = os.path.join(net_path, f'copies={c}', f'BRUF-{c}')
-        link_target = os.path.join(net_path, f'copies={copies}', f'BRUF-{c}')
-        if os.path.islink(link_target):
-            os.unlink(link_target)
-        os.symlink(link_source, link_target)
+    for copies in copies_rng:
+        working_dir = os.path.join(net_path, f'copies={copies}', 'IRUCoPn')
+        os.makedirs(working_dir, exist_ok=True)
+        for c in range(1, copies):
+            link_source = os.path.join(net_path, f'copies={c}', f'BRUF-{c}')
+            link_target = os.path.join(net_path, f'copies={copies}', f'BRUF-{c}')
+            if os.path.islink(link_target):
+                os.unlink(link_target)
+            os.symlink(link_source, link_target)
 
-    routing_files_path = os.path.join(working_dir, 'routing_files')
-    for target in targets:
-        path_to_load_bruf_states = [os.path.join(net_path, f'copies={c}', f'BRUF-{c}', f"to-{target}") for c in range(1, copies + 1)]
-        ibruf = IBRUFNFunctionGenerator(net, target, copies, working_dir[:working_dir.rindex('/')],
-                                        pf_rng, path_to_load_bruf_states=path_to_load_bruf_states)
-        func = ibruf.generate()
-        for c in range(1, copies + 1):
-            for pf in pf_rng:
-                pf_dir = os.path.join(routing_files_path, f'pf={pf:.2f}');
-                os.makedirs(pf_dir, exist_ok=True)
-                try:
-                    print_str_to_file(json.dumps(func[c][str(pf)]),
-                                    os.path.join(pf_dir, f'todtnsim-{target}-{c}-{pf:.2f}.json'))
-                except BaseException as e:
-                    print(f"[Exception] {e}")
+        routing_files_path = os.path.join(working_dir, 'routing_files')
+        for target in targets:
+            path_to_load_bruf_states = [os.path.join(net_path, f'copies={c}', f'BRUF-{c}', f"to-{target}") for c in range(1, copies + 1)]
+            ibruf = IBRUFNFunctionGenerator(net, target, copies, working_dir[:working_dir.rindex('/')],
+                                            pf_rng, path_to_load_bruf_states=path_to_load_bruf_states)
+            func = ibruf.generate()
+            for c in range(1, copies + 1):
+                for pf in pf_rng:
+                    pf_dir = os.path.join(routing_files_path, f'pf={pf:.2f}');
+                    os.makedirs(pf_dir, exist_ok=True)
+                    try:
+                        print_str_to_file(json.dumps(func[c][str(pf)]),
+                                        os.path.join(pf_dir, f'todtnsim-{target}-{c}-{pf:.2f}.json'))
+                    except BaseException as e:
+                        print(f"[Exception] {e}")
 
-    ini_path = os.path.join(working_dir, 'run.ini')
-    generate_omnet_ini_file(net.num_of_nodes, traffic, f'IRUCoPn-{copies}', ini_path, pf_rng,
-        os.path.relpath(dtnsim_cp_path, working_dir), frouting_path='routing_files/',
-        ts_duration=ts_duration, repeats=num_of_reps)
+        ini_path = os.path.join(working_dir, 'run.ini')
+        generate_omnet_ini_file(net.num_of_nodes, traffic, f'IRUCoPn-{copies}', ini_path, pf_rng,
+            os.path.relpath(dtnsim_cp_path, working_dir), frouting_path='routing_files/',
+            ts_duration=ts_duration, repeats=num_of_reps)
 
-    generate_omnetpp_script(['run.ini'], os.path.join(working_dir, 'run_simulation.sh'), DTNSIM_PATH,
-        os.path.join(net_path, f'copies={copies}', 'IRUCoPn'), num_of_reps, pf_rng)
-    generate_exec_script(working_dir, net_path, copies, 'IRUCoPn', f_output_name)
+        generate_omnetpp_script(['run.ini'], os.path.join(working_dir, 'run_simulation.sh'), DTNSIM_PATH,
+            os.path.join(net_path, f'copies={copies}', 'IRUCoPn'), num_of_reps, pf_rng)
+    generate_exec_script(net_path, copies_rng, 'IRUCoPn', f_output_name)
 
 
 

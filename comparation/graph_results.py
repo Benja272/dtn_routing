@@ -49,34 +49,61 @@ def get_graph_data(nets_info):
                             networks_info[net_name][copies][algorithm][metric] = literal_eval(file.read())
     return networks_info
 
-def plot_comparation_graphs(network: str, copies_number: int):
-    metrics_info = get_metrics_info()
-    graph_data = get_graph_data(metrics_info)
-    if network not in graph_data.keys():
-        print('No such network')
-        return
-    if copies_number not in graph_data[network].keys():
-        print('No such copies for ', network )
-        return
+def plot_comparation_graphs(graph_data, networks):
+    for network in networks:
+        if network not in graph_data.keys():
+            print('No such network')
+            continue
 
-    algoritms = list(graph_data[network][copies_number].keys())
-    print("Comparation of algoritms: ", algoritms, "for network ", network, "with ", copies_number, "copies")
-    for metric in graph_data[network][copies_number][algoritms[0]].keys():
-        plt.clf()
-        # plt.figure(figsize=(1100/DPI, 800/DPI), dpi=DPI)
-        plt.xticks(np.linspace(0, 1, 11))
-        plt.title(metric)
-        plt.xlabel('Failure probability')
-        max_y = 0
-        for algorithm in algoritms:
-            data = list(zip(*graph_data[network][copies_number][algorithm][metric]))
-            plt.plot(data[0], data[1], label=algorithm)
-            max_y = max(max_y, max(data[1]))
-        graphs_folder = './results/graphs/' + network + '/'
-        plt.yticks(np.linspace(0, max_y, 10))
-        plt.legend()
-        create_folder(graphs_folder)
-        plt.savefig(graphs_folder + metric + '.png', format='png', dpi=DPI)
+        for copies_number in graph_data[network].keys():
+            algoritms = list(graph_data[network][copies_number].keys())
+            print("Comparation of algoritms: ", algoritms, "for network ", network, "with ", copies_number, "copies")
+            for metric in graph_data[network][copies_number][algoritms[0]].keys():
+                plt.clf()
+                title = metric
+                if metric == 'deliveryRatio': title = 'Delivery Ratio'
+                if metric == 'appBundleReceivedDelay:mean': title = 'Delay Promedio'
+                if metric == 'EnergyEfficiency': title = 'Eficiencia Energetica'
+
+                plt.title(title)
+                plt.xlabel('Probabilidad de Fallo')
+                max_y = 0
+                for algorithm in algoritms:
+                    data = graph_data[network][copies_number][algorithm][metric]
+                    # positions = list(zip(*data))[0]
+                    # positions = tuple(float(i) for i in positions)
+                    positions1 = [i for i in range(1, 23,2)]
+                    positions2 = [i for i in range(2, 23,2)]
+                    boxes = list(map(lambda x: {
+                        'med': x[1],
+                        'q1': x[1] - x[2],
+                        'q3': x[1] + x[2],
+                        'whislo': x[4],
+                        'whishi': x[3]
+                    }, data))
+                    axs = plt.axes()
+                    pf_rng = list(zip(*data))[0]
+                    if algorithm == 'IRUCoPn':
+                        algorithm = 'RUCoP'
+                        axs.bxp(boxes, positions1, showfliers=False,
+                            medianprops={'color':'orange', 'linewidth':1.5}, boxprops={'color':'orange'}, widths=0.3)
+                        plt.plot(np.NaN, np.NaN, color='orange', label='RUCoP')
+                        # plt.plot(data[0], data[1], label=algorithm, color='orange')
+                    else:
+                        axs.bxp(boxes, positions2, showfliers=False,
+                            medianprops={'color':'tab:blue', 'linewidth':1.5}, boxprops={'color':'tab:blue'}, widths=0.3)
+                        plt.plot(np.NaN, np.NaN, color='tab:blue', label=algorithm)
+                        # plt.plot(data[0], data[1], label=algorithm, color='tab:blue')
+                    # max_y = max(max_y, max(data[1]))
+                axs.set_xticklabels(pf_rng)
+                axs.set_xticks(tuple(1.5 + 2*i for i in range(len(pf_rng))))
+                axs.set_xlim(0, 23)
+                # draw temporary red and blue lines and use them to create a legend
+                graphs_folder = './results/graphs/' + network + '/copies=' + str(copies_number) + '/'
+                # plt.yticks(np.linspace(0, max_y, 10))
+                plt.legend()
+                create_folder(graphs_folder)
+                plt.savefig(graphs_folder + metric + '.png', format='png', dpi=DPI)
 
 
 def create_folder(folder):
@@ -84,12 +111,8 @@ def create_folder(folder):
         os.makedirs(folder)
 
 
-plot_comparation_graphs("morucop_case", 1)
-# plot_comparation_graphs("net0", 3)
-# plot_comparation_graphs("net1", 3)
-# plot_comparation_graphs("rrn_start_t:0,end_t:10800", 3)
-# plot_comparation_graphs("rrn_start_t:7200,end_t:10800", 3)
-# plot_comparation_graphs("rrn_start_t:7200,end_t:14400", 3)
-# plot_comparation_graphs("rrn_start_t:10800,end_t:14400", 3)
-# plot_comparation_graphs("rrn_start_t:21600,end_t:28800", 3)
+metrics_info = get_metrics_info()
+graph_data = get_graph_data(metrics_info)
+# plot_comparation_graphs(graph_data, graph_data.keys())
+plot_comparation_graphs(graph_data, ['net1'])
 
