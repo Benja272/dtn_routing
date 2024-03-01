@@ -39,7 +39,7 @@ import sys
 sys.path.append('../')
 import os
 import json
-import statistics
+from statistics import mean, stdev
 # from brufn.utils import getListFromFile
 from settings import *
 metrics_name = list(map(lambda m: m[0], METRICS))
@@ -52,34 +52,32 @@ def main(exp_path, net, routing_algotithm, num_of_reps, pf_rng):
         path = os.path.join(ra_dir, 'results', "dtnsim-faultsAware=false")
         metric_graph_data = {metric: [] for metric in metrics_name}
         for pf_str in pf_rng_str:
-            metrics_sum = {metric: 0 for metric in metrics_name}
+            metrics_sum = {metric: [] for metric in metrics_name}
             path_with_fp = path + f",failureProbability={pf_str}"
             for i in range(num_of_reps):
-                path_with_rep = path_with_fp + f"-#{i}.sca"
-                print(path_with_rep)
-                cursor = fileCursor(path_with_rep)
-                getAll("dtnBundleReceivedFromComIds:vector")
+                path_with_rep_sca = path_with_fp + f"-#{i}.sca"
+                path_with_rep_vec = path_with_fp + f"-#{i}.vec"
+                print(path_with_rep_sca)
+                cursor_sca = fileCursor(path_with_rep_sca)
+                cursor_vec = fileCursor(path_with_rep_vec)
                 for metric in metrics_name:
                     if(metric == "deliveryRatio"):
-                        getAll(cursor, "appBundleReceived:count")
-                        metrics_sum[metric] += deliveryRatio(cursor)
+                        metrics_sum[metric].append(deliveryRatio(cursor_sca))
                     elif( (metric == "appBundleReceivedDelay:mean") or (metric == "appBundleReceivedHops:mean") or (metric == "sdrBundleStored:timeavg")):
-                        getAll(cursor, metric)
-                        metrics_sum[metric] += executeOperation(cursor, "AVG", metric)
+                        metrics_sum[metric].append(executeOperation(cursor_sca, "AVG", metric))
                     elif metric=='EnergyEfficiency':
-                        delivered_bundles = executeOperation(cursor, "SUM", "appBundleReceived:count")
-                        number_of_transmisions = executeOperation(cursor, "SUM", "dtnBundleSentToCom:count")
-                        energyEfficiency = delivered_bundles / number_of_transmisions if number_of_transmisions != 0 else 0
-                        metrics_sum[metric] += energyEfficiency
-                        metrics_sum["appBundleReceived:count"] += delivered_bundles
-                        metrics_sum["dtnBundleSentToCom:count"] += number_of_transmisions
+                        delivered_bundles = executeOperation(cursor_sca, "SUM", "appBundleReceived:count")
+                        number_of_transmisions = executeOperation(cursor_sca, "SUM", "dtnBundleSentToCom:count")
+                        metrics_sum[metric].append(getEnergyEfficiency(cursor_vec))
+                        metrics_sum["appBundleReceived:count"].append(delivered_bundles)
+                        metrics_sum["dtnBundleSentToCom:count"].append(number_of_transmisions)
                         # f_delivered_bundles =  getListFromFile(f"{graph_output_dir}/METRIC=appBundleReceived:count.txt")
                         # f_number_of_transmisions = getListFromFile(f"{graph_output_dir}/METRIC=dtnBundleSentToCom:count.txt")
                         # f_avg_by_rep = [(f_delivered_bundles[i][0], f_delivered_bundles[i][1] / f_number_of_transmisions[i][1] if f_number_of_transmisions[i][1] != 0 else 0) for i in range(len(f_delivered_bundles))]
 
                     #compute average function for all contact plans (all contact plans average - DENSITY AVERAGE)
             for metric in metrics_name:
-                graph_data = (pf_str, metrics_sum[metric] / float(num_of_reps))
+                graph_data = (pf_str, mean(metrics_sum[metric]), stdev(metrics_sum[metric]), max(metrics_sum[metric]), min(metrics_sum[metric]))
                 metric_graph_data[metric].append(graph_data)
 
         for metric in metrics_name:
@@ -107,10 +105,20 @@ def fileCursor(path):
     cur = conn.cursor()
     return cur
 
-def getAll(cur, scalarName):
-    cur.execute("SELECT * AS result FROM scalar WHERE scalarName='%s'"%(scalarName))
-    rows = cur.fetchall()
-    print(rows)
+def getEnergyEfficiency(cursor_vec):
+    sentToComPkgs = vectorCount(cursor_vec, "dtnBundleSentToComIds:vector")
+    arrivedToAppPkgs = vectorCount(cursor_vec, "dtnBundleSentToAppIds:vector")
+    arrivedIds = list(arrivedToAppPkgs.keys())
+    transmisions = 0
+    for id in arrivedIds:
+        transmisions += sentToComPkgs[id]
+    return len(arrivedIds)/transmisions if transmisions != 0 else 1
+
+def vectorCount(cur, vectorName):
+    cur.execute("SELECT vectordata.value, COUNT(*) FROM vectordata INNER JOIN " +
+                "vector ON vectordata.vectorId = vector.vectorId "+
+                "WHERE vector.vectorName='%s' GROUP BY vectordata.value"%(vectorName))
+    rows = dict(cur.fetchall())
     return rows
 
 
