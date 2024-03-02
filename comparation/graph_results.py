@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 from ast import literal_eval
 from matplotlib import pyplot as plt
-import ipdb
+from settings import *
 
 DPI = 300
 NETWORKS_PATH = './results/networks/'
@@ -67,7 +67,6 @@ def plot_comparation_graphs(graph_data, networks):
 
                 plt.title(title)
                 plt.xlabel('Probabilidad de Fallo')
-                max_y = 0
                 for algorithm in algoritms:
                     data = graph_data[network][copies_number][algorithm][metric]
                     # positions = list(zip(*data))[0]
@@ -76,27 +75,29 @@ def plot_comparation_graphs(graph_data, networks):
                     positions2 = [i for i in range(2, 23,2)]
                     boxes = list(map(lambda x: {
                         'med': x[1],
-                        'q1': x[1] - x[2],
+                        'q1': x[1] - x[2] if x[1] - x[2] > 0 else 0,
                         'q3': x[1] + x[2],
                         'whislo': x[4],
                         'whishi': x[3]
                     }, data))
                     axs = plt.axes()
-                    pf_rng = list(zip(*data))[0]
                     if algorithm == 'IRUCoPn':
                         algorithm = 'RUCoP'
                         axs.bxp(boxes, positions1, showfliers=False,
-                            medianprops={'color':'orange', 'linewidth':1.5}, boxprops={'color':'orange'}, widths=0.3)
+                            medianprops={'color':'orange', 'linewidth':1.5},
+                            boxprops={'color':'orange'},
+                            whiskerprops={'color':'white'} if network.startswith("rrn") else None,
+                            showcaps=False if network.startswith("rrn") else True, widths=0.3)
                         plt.plot(np.NaN, np.NaN, color='orange', label='RUCoP')
-                        # plt.plot(data[0], data[1], label=algorithm, color='orange')
                     else:
                         axs.bxp(boxes, positions2, showfliers=False,
-                            medianprops={'color':'tab:blue', 'linewidth':1.5}, boxprops={'color':'tab:blue'}, widths=0.3)
+                            medianprops={'color':'tab:blue', 'linewidth':1.5},
+                            boxprops={'color':'tab:blue'},
+                            whiskerprops={'color':'white'} if network.startswith("rrn") else None,
+                            showcaps=False if network.startswith("rrn") else True, widths=0.3)
                         plt.plot(np.NaN, np.NaN, color='tab:blue', label=algorithm)
-                        # plt.plot(data[0], data[1], label=algorithm, color='tab:blue')
-                    # max_y = max(max_y, max(data[1]))
-                axs.set_xticklabels(pf_rng)
-                axs.set_xticks(tuple(1.5 + 2*i for i in range(len(pf_rng))))
+                axs.set_xticklabels(PF_RNG)
+                axs.set_xticks(tuple(1.5 + 2*i for i in range(len(PF_RNG))))
                 axs.set_xlim(0, 23)
                 # draw temporary red and blue lines and use them to create a legend
                 graphs_folder = './results/graphs/' + network + '/copies=' + str(copies_number) + '/'
@@ -113,6 +114,6 @@ def create_folder(folder):
 
 metrics_info = get_metrics_info()
 graph_data = get_graph_data(metrics_info)
-# plot_comparation_graphs(graph_data, graph_data.keys())
-plot_comparation_graphs(graph_data, ['net1'])
+plot_comparation_graphs(graph_data, graph_data.keys())
+# plot_comparation_graphs(graph_data, ['net1'])
 
