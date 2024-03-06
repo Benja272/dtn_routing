@@ -64,7 +64,9 @@ def main(exp_path, net, routing_algotithm, num_of_reps, pf_rng):
                     if(metric == "deliveryRatio"):
                         metrics_sum[metric].append(deliveryRatio(cursor_sca))
                     elif( (metric == "appBundleReceivedDelay:mean") or (metric == "appBundleReceivedHops:mean") or (metric == "sdrBundleStored:timeavg")):
-                        metrics_sum[metric].append(executeOperation(cursor_sca, "AVG", metric))
+                        avg = executeOperation(cursor_sca, "AVG", metric)
+                        if avg != 0:
+                            metrics_sum[metric].append(avg)
                     elif metric=='EnergyEfficiency':
                         delivered_bundles = executeOperation(cursor_sca, "SUM", "appBundleReceived:count")
                         number_of_transmisions = executeOperation(cursor_sca, "SUM", "dtnBundleSentToCom:count")
@@ -77,7 +79,13 @@ def main(exp_path, net, routing_algotithm, num_of_reps, pf_rng):
 
                     #compute average function for all contact plans (all contact plans average - DENSITY AVERAGE)
             for metric in metrics_name:
-                graph_data = (pf_str, mean(metrics_sum[metric]), stdev(metrics_sum[metric]), max(metrics_sum[metric]), min(metrics_sum[metric]))
+                if len(metrics_sum[metric]) >= 2:
+                    graph_data = (pf_str, mean(metrics_sum[metric]), stdev(metrics_sum[metric]), max(metrics_sum[metric]), min(metrics_sum[metric]))
+                elif len(metrics_sum[metric]) == 1:
+                    graph_data = (pf_str, metrics_sum[metric][0], 0, metrics_sum[metric][0], metrics_sum[metric][0])
+                else:
+                    graph_data = (pf_str, 0, 0, 0, 0)
+
                 metric_graph_data[metric].append(graph_data)
 
         for metric in metrics_name:

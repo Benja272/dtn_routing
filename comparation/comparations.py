@@ -18,7 +18,7 @@ def RRN_comparation():
     params = [(1,7200,10800),  #1h
                 # (1,10800,14400),  #1h
                 # (1, 7200, 14400),  # 2h
-                # (7,21600,28800),  #2h
+                (7,21600,28800),  #2h
                 # (7, 0, 10800),  # 3h
                 # (15,21600,32400),  #3h
                 ]
@@ -55,10 +55,9 @@ def RRN_comparation():
         f_output_name = f'run_{startt},{endt},IRUCOP.sh'
         sims_commands.append("bash " + f_output_name)
         # IRUCoP
-        # for copies in COPIES_RNG:
-        #     irucop_time += exec_with_time(
-        #         irucop,net_path, dtnsim_cp_path, 60, traffic, [target],
-        #             copies, f_output_name, RRN_NUM_OF_REPS_OMNET, PF_RNG, cp_path)
+        irucop_time += exec_with_time(
+            irucop,net_path, dtnsim_cp_path, 60, traffic, [target],
+                COPIES_RNG, f_output_name, RRN_NUM_OF_REPS_OMNET, PF_RNG, cp_path)
         # MORUCOP
         f_output_name = f'run_{startt},{endt},MORUCOP.sh'
         morucop_time += exec_with_time(
@@ -80,10 +79,10 @@ def random_comparation():
         cp_path = os.path.join(net_path, f'net-{net}-seed={SEED}.py')
         dtnsim_cp_path = os.path.join(net_path, f'0.2_{net}_seed={SEED}_reflexive.dtnsim')
         # RUCoP
-        for copies in COPIES_RNG:
-            for target in TARGETS:
-                irucop_time += exec_with_time(
-                    rucop,net_path, copies, SOURCES, [target], PF_RNG, None, None, cp_path)
+        # for copies in COPIES_RNG:
+        #     for target in TARGETS:
+        #         irucop_time += exec_with_time(
+        #             rucop,net_path, copies, SOURCES, [target], PF_RNG, None, None, cp_path)
         # IRUCoP
         f_output_name = f'run_net{net},IRUCOP.sh'
         sims_commands.append("bash " + f_output_name)
@@ -134,6 +133,6 @@ with open(os.path.join(PATH_TO_RESULT,"run_sims.sh"), 'w') as f:
 # simple_case('morucop_case')
 # simple_case('badD1CopieCase', [1,2])
 random_comparation()
-# RRN_comparation()
+RRN_comparation()
 
 

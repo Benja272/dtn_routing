@@ -36,6 +36,7 @@ print("Time on creating network: ", time.perf_counter() - time_start)
 
 time_start = time.perf_counter()
 #run your code
+net.set_pf(0.5)
 net.run_multiobjective_derivation(bundle_size, max_copies)
 time_elapsed = (time.perf_counter()- time_start)
 memMb=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.0/1024.0

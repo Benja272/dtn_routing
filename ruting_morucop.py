@@ -1,13 +1,12 @@
 
 from contact_plan import ContactPlan
 from collections import Counter
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Tuple
 from math import ceil
 import numpy as np
 from itertools import combinations_with_replacement, combinations, product, chain
 import json
 import os
-import ipdb
 
 NEXT = 0
 
@@ -39,7 +38,7 @@ class Decision:
 
 
 class Contact:
-    def __init__(self, id: int, from_n: int, to_n: int, t_range: (int, int), data_rate: int, pf: float=0):
+    def __init__(self, id: int, from_n: int, to_n: int, t_range: Tuple[int, int], data_rate: int, pf: float=0):
         self.id = id
         self.from_n: int = from_n
         self.to: int = to_n

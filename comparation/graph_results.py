@@ -62,8 +62,8 @@ def plot_comparation_graphs(graph_data, networks):
                 plt.clf()
                 title = metric
                 if metric == 'deliveryRatio': title = 'Delivery Ratio'
-                if metric == 'appBundleReceivedDelay:mean': title = 'Delay Promedio'
-                if metric == 'EnergyEfficiency': title = 'Eficiencia Energetica'
+                if metric == 'appBundleReceivedDelay:mean': title = 'Delay'
+                if metric == 'EnergyEfficiency': title = 'Energy Efficiency'
 
                 plt.title(title)
                 plt.xlabel('Probabilidad de Fallo')
@@ -76,7 +76,7 @@ def plot_comparation_graphs(graph_data, networks):
                     boxes = list(map(lambda x: {
                         'med': x[1],
                         'q1': x[1] - x[2] if x[1] - x[2] > 0 else 0,
-                        'q3': x[1] + x[2],
+                        'q3': x[1] + x[2] if x[1] + x[2] < 1 or metric == 'appBundleReceivedDelay:mean' else 1,
                         'whislo': x[4],
                         'whishi': x[3]
                     }, data))
@@ -86,15 +86,15 @@ def plot_comparation_graphs(graph_data, networks):
                         axs.bxp(boxes, positions1, showfliers=False,
                             medianprops={'color':'orange', 'linewidth':1.5},
                             boxprops={'color':'orange'},
-                            whiskerprops={'color':'white'} if network.startswith("rrn") else None,
-                            showcaps=False if network.startswith("rrn") else True, widths=0.3)
+                            whiskerprops={'color':'white'} if network.startswith("rrn") and metric != 'appBundleReceivedDelay:mean' else None,
+                            showcaps=False if network.startswith("rrn") and metric != 'appBundleReceivedDelay:mean' else True, widths=0.3)
                         plt.plot(np.NaN, np.NaN, color='orange', label='RUCoP')
                     else:
                         axs.bxp(boxes, positions2, showfliers=False,
                             medianprops={'color':'tab:blue', 'linewidth':1.5},
                             boxprops={'color':'tab:blue'},
-                            whiskerprops={'color':'white'} if network.startswith("rrn") else None,
-                            showcaps=False if network.startswith("rrn") else True, widths=0.3)
+                            whiskerprops={'color':'white'} if network.startswith("rrn") and metric != 'appBundleReceivedDelay:mean' else None,
+                            showcaps=False if network.startswith("rrn") and metric != 'appBundleReceivedDelay:mean' else True, widths=0.3)
                         plt.plot(np.NaN, np.NaN, color='tab:blue', label=algorithm)
                 axs.set_xticklabels(PF_RNG)
                 axs.set_xticks(tuple(1.5 + 2*i for i in range(len(PF_RNG))))
