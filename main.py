@@ -8,6 +8,8 @@ file = 'simple_case.txt'
 bundle_size = 1
 max_copies = 2
 ts_duration = 1
+pf = 0.5
+targets = None
 time_start = time.perf_counter()
 args = sys.argv
 if (len(args) > 1):
@@ -25,19 +27,26 @@ if (len(args) > 1):
             max_copies = int(value)
         elif "--ts_duration" == option:
             ts_duration = int(value)
+        elif "--targets" == option:
+            targets = [int(x) for x in value]
+        elif "--pf" == option:
+            pf = float(value)
         else:
             print("Bad Option ", option)
-            print("The options are: --priorities=[0,1,2] --contact_plan=filename.txt --bundle_size=1 --max_copies=2")
+            print("The options are: --priorities=[0,1,2] --contact_plan=filename.txt --bundle_size=1 --max_copies=2 --ts_duration=1 --targets=[0,1,2,3,4]")
             exit()
 
 net = ruting_morucop.Network.from_contact_plan("./use_cases/" + file, priorities=priorities, ts_duration=ts_duration)
+net.set_pf(pf)
 
 print("Time on creating network: ", time.perf_counter() - time_start)
 
+if targets is None:
+    targets = range(net.node_number)
+
 time_start = time.perf_counter()
 #run your code
-net.set_pf(0.5)
-net.run_multiobjective_derivation(bundle_size, max_copies)
+net.run_multiobjective_derivation(targets, bundle_size, max_copies)
 time_elapsed = (time.perf_counter()- time_start)
 memMb=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.0/1024.0
 print ("%5.1f n_secs %5.1f MByte" % (time_elapsed,memMb))
