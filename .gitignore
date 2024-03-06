@@ -160,8 +160,5 @@ cython_debug/
 #.idea/
 
 faultsInjectionAnalysis/
-dtnsim/
-brufn-0.0.2/
-spark-3.0.3-bin-hadoop2.7/
 tesis/
 comparation/results/

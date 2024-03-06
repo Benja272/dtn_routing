@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: brufn
+Version: 0.0.2
+Summary: Best Routing Under Uncertainties
+Home-page: UNKNOWN
+Author: Fernando Raverta
+Author-email: fdraverta@gmail.com
+License: UNKNOWN
+Description: # A Markov Decision Process for Routing in Space DTNs with Uncertain Contact Plans
+        
+        Given 
+        
+         - Contact Plan  annotated with links failure probability
+         - A list of traffic, each one denoted by its from and target node identifiers
+           and a creation time stamp.
+        
+        These scripts compute the routing decisions which maximizes the overall traffic delivery probability.
+        
+        
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
