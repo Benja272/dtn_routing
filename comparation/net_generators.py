@@ -13,7 +13,8 @@ def generate_RNN_net_from_cp(startt, endt):
     cp = cp.filter_contact_by_endpoints(GROUND_TARGETS_EIDS + SATELLITES, SATELLITES + [GS_EID])
     cp.rename_eids(F_RENAME_DTNSIM)
 
-    slice_dir = os.path.join(PATH_TO_RESULT,f'networks/rrn_start_t:{startt},end_t:{endt}');
+    slice_dir = os.path.join(PATH_TO_RESULT,f'networks/rrn_start_t:{startt},end_t:{endt}')
+    dtnsim_cp_path = os.path.join(slice_dir, f'RRN_A_with_ISL_seed={SEED}_reflexive.dtnsim')
     os.makedirs(slice_dir, exist_ok=True)
 
     sliced_cp_6h = cp.slice_cp(startt, endt)
@@ -54,9 +55,9 @@ def generate_RNN_net_from_cp(startt, endt):
 
         sorted(contacts, key=lambda x: (x.ts, x.from_, x.to))
         net = Net(net.num_of_nodes, [Contact(c.from_, c.to, c.ts) for c in contacts])
-        #net.print_to_file(slice_dir, file_name=f'cp_start_t:{startt},end_t:{endt}-seed={SEED}.py')
-        #net.print_dtnsim_cp_to_file(60, 100, dtnsim_cp_path)
-        #net.to_dot(slice_dir, f'cp_start_t:{startt},end_t:{endt}-seed={SEED}.dot')
+        net.print_to_file(slice_dir, file_name=f'cp_start_t:{startt},end_t:{endt}-seed={SEED}.py')
+        net.print_dtnsim_cp_to_file(60, 100, dtnsim_cp_path)
+        net.to_dot(slice_dir, f'cp_start_t:{startt},end_t:{endt}-seed={SEED}.dot')
         NetMetricGenerator(net, range(net.num_of_nodes), [1,2,3], [1,7,15], slice_dir).compute_metrics()
 
 def generate_random_networks(net_rng, ts_duration_in_seconds):
@@ -65,11 +66,10 @@ def generate_random_networks(net_rng, ts_duration_in_seconds):
     The network is obtained from one of the 10 random networks used in ICC
     '''
     for net in net_rng:
-        path = os.path.join(PATH_TO_RESULT, f'net{net}'); os.makedirs(path, exist_ok=True)
+        path = os.path.join(PATH_TO_RESULT, 'networks', f'net{net}'); os.makedirs(path, exist_ok=True)
         path_to_net = os.path.join(path, f'net-{net}-seed={SEED}.py')
         dtnsim_cp_path = os.path.join(path, f'0.2_{net}_seed={SEED}_reflexive.dtnsim')
         if not os.path.isfile(path_to_net):
-            path = os.path.join(PATH_TO_RESULT, f'net{net}')
             net_obj = Net.get_net_from_file('10NetICC/net0/net.py', contact_pf_required=False)
             contacts_by_ts = dict((ts, []) for ts in range(net_obj.num_of_ts))
             print("Number of contacts: ", len(net_obj.contacts))

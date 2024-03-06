@@ -2,9 +2,9 @@ import os
 from settings import *
 from irucop import rucop, irucop
 from morucop import morucop
+from net_generators import generate_RNN_net_from_cp, generate_random_networks
 from typing import Dict, List
 import time
-import ipdb
 
 def exec_with_time(fun, *args):
     time_start = time.perf_counter()
@@ -41,6 +41,9 @@ def RRN_comparation():
         f_output_name = f'run_{startt},{endt},IRUCOP.sh'
         sims_commands.append("bash " + f_output_name)
 
+        if not os.path.exists(net_path):
+            generate_RNN_net_from_cp(startt, endt)
+
         # RUCoP
         irucop_time += exec_with_time(
             rucop,net_path, COPIES_RNG, sources, [target], probabilities_rng, None, None, cp_path)
@@ -68,11 +71,13 @@ def random_comparation():
         net_path = get_net_path(f'net{net}')
         cp_path = os.path.join(net_path, f'net-{net}-seed={SEED}.py')
         dtnsim_cp_path = os.path.join(net_path, f'0.2_{net}_seed={SEED}_reflexive.dtnsim')
+        if not os.path.exists(net_path):
+            generate_random_networks([net], RANDOM_TS_DURATION_IN_SECONDS)
+
         # RUCoP
-        # for copies in COPIES_RNG:
-        #     for target in TARGETS:
-        #         irucop_time += exec_with_time(
-        #             rucop,net_path, copies, SOURCES, [target], PF_RNG, None, None, cp_path)
+        for target in TARGETS:
+            irucop_time += exec_with_time(
+                rucop,net_path, COPIES_RNG, SOURCES, [target], PF_RNG, None, None, cp_path)
         # IRUCoP
         f_output_name = f'run_net{net},IRUCOP.sh'
         sims_commands.append("bash " + f_output_name)
@@ -126,6 +131,6 @@ with open(os.path.join(PATH_TO_RESULT,"run_sims.sh"), 'w') as f:
 # simple_case('morucop_case')
 # simple_case('badD1CopieCase', [1,2])
 RRN_comparation()
-# random_comparation()
+random_comparation()
 
 

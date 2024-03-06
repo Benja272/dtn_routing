@@ -21,6 +21,22 @@ para todos, ademas al momento de correr el algoritmo de enrutamiento se configur
 en la red entera. De esto dependera el tamaño de la tabla de enrutamiento asi como el delay obtenido por cada contacto al intentar enviar un paquete.
 
 ## Uso
+### Instalación
+Es importante utilizar una version correcta de python, este repositorio fue testeado con python ```3.6.15```.
+
+Las simulaciones se ejecutan con el framework de omnet++ en su version ```5.1.1```, para su correcta ejecucion es necesario instarlo y setear las variables de entorno necesarias (ejecutar ``` source setenv ``` en el directorio de omnet).
+
+Para iniciar el proceso de instalacion python tenemos que crear un entorno virtual para el proyecto ejecutando. 
+```python3 venv env ```, luego activamos el entorno de ejecucion con ```. env/bin/activate ```.
+
+Una vez activado el entorno ejecutamos el script de instalacion con ```. install.sh```
+
+Si se requiere recompilar la herramienta dtnsim, se recomienda utilizar el compilador de omnet++ ya que de otra forma pueden surgir problemas.
+
+### Ejecucion
+
+Dentro de la carpeta `comparation` esta el codigo para la comparacion de los algoritmos. Podemos ejecutar el script `comparation_and_graphs.sh` para generar los escenarios obtener las tablas de enrutamiento de ambos algoritmos, correr las simulaciones y graficar los resultados obtenidos. 
+
 Ejecutando el archivo main con el comando `python3 main.py --priorities=123` estamos ejecutando el ejemplo simple_case.txt de un plan de contacto  
 y calculando las decisiones optimas siguiendo las prioridades sdp > energy > delay. Es decir el numero 1 representa el sdp, 2 la energia  
 y 3 el tiempo estimado de entrega. Otro ejemplo seria priorizar la energia antes que el sdp, las prioridades en ese caso deberian  
@@ -32,10 +48,5 @@ configurarse como `213`
 `--max_copies=2`   ----> cantidad maxima de copias de un mismo paquete.  
 `--ts_dutation=1`  ----> duracion de un time slot.  
 `--contact_plan=simple_case.txt` -----> archivo txt con la informacion del plan de contacto dentro de la carpeta use_cases.  
-
-
-
-
-installar libsqlite3-dev antes de python3.6
-
-problemas con la compilacion manual desde la terminal para dtnsim, usar omnet para modificaciones.
+`--targets=[1,2,3,4]` ----> ids de los nodos objetivos a considerar
+`--pf=0.5` ----> probabilidad de fallar en cada contacto.
