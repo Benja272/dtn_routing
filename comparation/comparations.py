@@ -18,31 +18,14 @@ def RRN_comparation():
     params = [(1,7200,10800),  #1h
                 # (1,10800,14400),  #1h
                 # (1, 7200, 14400),  # 2h
-                (7,21600,28800),  #2h
+                # (7,21600,28800),  #2h
                 # (7, 0, 10800),  # 3h
                 # (15,21600,32400),  #3h
                 ]
     irucop_time = 0.
     morucop_time = 0.
-    # for source, starting_time, end_time in params:
-    #     duration_in_hours = (end_time - starting_time) // 3600
-    #     starting_hour = starting_time // 3600
-    #     startt = starting_hour * 3600
-    #     endt = (starting_hour + duration_in_hours) * 3600
-    #     net_path = get_net_path(f'rrn_start_t:{startt},end_t:{endt}')
-    #     cp_path = os.path.join(net_path, f'cp_start_t:{startt},end_t:{endt}-seed={SEED}.py')
-    #     sources = [F_RENAME_DTNSIM[gt] - 1 for gt in GROUND_TARGETS_EIDS]
-    #     target = F_RENAME_DTNSIM[GS_EID] - 1
-    #     probabilities_rng = [x / 100. for x in range(0, 110, 10)]
-
-    #     # RUCoP
-    #     for copies in COPIES_RNG:
-    #         irucop_time += exec_with_time(
-    #             rucop,net_path, copies, sources, [target], probabilities_rng, None, None, cp_path)
-    ####################################################################################
     sims_commands = []
     for source, starting_time, end_time in params:
-        target = 38
         duration_in_hours = (end_time - starting_time) // 3600
         starting_hour = starting_time // 3600
         startt = starting_hour * 3600
@@ -50,10 +33,17 @@ def RRN_comparation():
         net_path = get_net_path(f'rrn_start_t:{startt},end_t:{endt}')
         cp_path = os.path.join(net_path, f'cp_start_t:{startt},end_t:{endt}-seed={SEED}.py')
         dtnsim_cp_path = os.path.join(net_path, f'RRN_A_with_ISL_seed={SEED}_reflexive.dtnsim')
+        sources = [F_RENAME_DTNSIM[gt] - 1 for gt in GROUND_TARGETS_EIDS]
+        target = F_RENAME_DTNSIM[GS_EID] - 1
         traffic = {source + 1: [target + 1]}
+        probabilities_rng = [x / 100. for x in range(0, 110, 10)]
 
         f_output_name = f'run_{startt},{endt},IRUCOP.sh'
         sims_commands.append("bash " + f_output_name)
+
+        # RUCoP
+        irucop_time += exec_with_time(
+            rucop,net_path, COPIES_RNG, sources, [target], probabilities_rng, None, None, cp_path)
         # IRUCoP
         irucop_time += exec_with_time(
             irucop,net_path, dtnsim_cp_path, 60, traffic, [target],
@@ -126,13 +116,16 @@ def append_commands(sims_commands):
             f.write("&&\n")
         f.write("&&\n".join(sims_commands))
 
+if not os.path.exists(PATH_TO_RESULT):
+    os.makedirs(PATH_TO_RESULT)
+
 with open(os.path.join(PATH_TO_RESULT,"run_sims.sh"), 'w') as f:
     f.write("")
 
 
 # simple_case('morucop_case')
 # simple_case('badD1CopieCase', [1,2])
-random_comparation()
 RRN_comparation()
+# random_comparation()
 
 

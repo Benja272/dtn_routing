@@ -27,35 +27,36 @@ def get_net(cp_path, dtnsim_cp_path, ts_duration):
     return net
 
 
-def rucop(net_path, copies, sources, targets, probabilities_rng,
+def rucop(net_path, copies_rng, sources, targets, probabilities_rng,
             ts_duration=None, dtnsim_cp_path=None, cp_path=None):
-    net = get_net(cp_path, dtnsim_cp_path, ts_duration)
-    try:
-        rc = json.load(open(os.path.join(net_path, 'transitive_closure.json')),
-                                        object_hook=lambda d: {int(k): [int(i) for i in v] if isinstance(v, list) else v
-                                                                for k, v in d.items()})
-    except FileNotFoundError as e:
-        rc = None
-    try:
-        for target in targets:
-            working_dir = os.path.join(net_path, f'copies={copies}', f'BRUF-{copies}', f"to-{target}")
-            os.makedirs(working_dir, exist_ok=True)
-            conf = SparkConf().setAppName("BRUF-Spark")
-            conf = (conf.setMaster('local[2]')
-                    .set('spark.executor.memory', '2G')
-                    .set('spark.driver.memory', '4G')
-                    .set('spark.driver.maxResultSize', '8G'))
-            sc = SparkContext(conf=conf)
-            bruf = BRUFSpark(net, sources, target, copies, probabilities_rng, working_dir)
-            bruf.compute_bruf(sc, reachability_closure=rc)
-    except Exception as e:
-        import pdb; pdb.set_trace()
-        print(e)
-    finally:
+    for copies in copies_rng:
+        net = get_net(cp_path, dtnsim_cp_path, ts_duration)
         try:
-            sc.stop()
-        except:
-            pass
+            rc = json.load(open(os.path.join(net_path, 'transitive_closure.json')),
+                                            object_hook=lambda d: {int(k): [int(i) for i in v] if isinstance(v, list) else v
+                                                                    for k, v in d.items()})
+        except FileNotFoundError as e:
+            rc = None
+        try:
+            for target in targets:
+                working_dir = os.path.join(net_path, f'copies={copies}', f'BRUF-{copies}', f"to-{target}")
+                os.makedirs(working_dir, exist_ok=True)
+                conf = SparkConf().setAppName("BRUF-Spark")
+                conf = (conf.setMaster('local[2]')
+                        .set('spark.executor.memory', '2G')
+                        .set('spark.driver.memory', '4G')
+                        .set('spark.driver.maxResultSize', '8G'))
+                sc = SparkContext(conf=conf)
+                bruf = BRUFSpark(net, sources, target, copies, probabilities_rng, working_dir)
+                bruf.compute_bruf(sc, reachability_closure=rc)
+        except Exception as e:
+            import pdb; pdb.set_trace()
+            print(e)
+        finally:
+            try:
+                sc.stop()
+            except:
+                pass
 
 def irucop(net_path, dtnsim_cp_path, ts_duration, traffic, targets,
            copies_rng, f_output_name, num_of_reps, pf_rng, cp_path=None):
